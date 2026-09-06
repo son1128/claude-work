@@ -1,0 +1,394 @@
+<!doctype html>
+<title>Focus Ledger</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f4f0;
+    --surface:#ffffff;
+    --surface-2:#eceae3;
+    --border:#dcdad2;
+    --text:#1f2321;
+    --text-dim:#6b706a;
+    --accent:#e0502e;
+    --accent-ink:#ffffff;
+    --accent-soft:#fbe2d8;
+    --good:#3f7a56;
+    --good-soft:#e0ede4;
+    --ring-track:#e4e2da;
+    --shadow: 0 1px 2px rgba(30,25,15,.04), 0 8px 24px rgba(30,25,15,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15171a;
+      --surface:#1d2023;
+      --surface-2:#23262a;
+      --border:#31353a;
+      --text:#eeece6;
+      --text-dim:#9a9d98;
+      --accent:#ff6a45;
+      --accent-ink:#1a1210;
+      --accent-soft:#3a231b;
+      --good:#6fbf93;
+      --good-soft:#1e2b23;
+      --ring-track:#2b2e32;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171a;
+    --surface:#1d2023;
+    --surface-2:#23262a;
+    --border:#31353a;
+    --text:#eeece6;
+    --text-dim:#9a9d98;
+    --accent:#ff6a45;
+    --accent-ink:#1a1210;
+    --accent-soft:#3a231b;
+    --good:#6fbf93;
+    --good-soft:#1e2b23;
+    --ring-track:#2b2e32;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:1040px; margin:0 auto; padding:2.5rem 1.5rem 4rem;
+    display:flex; flex-direction:column; gap:1.75rem;
+  }
+  header{
+    display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:baseline; gap:.6rem; }
+  .brand .mark{
+    font-family:"IBM Plex Mono", monospace; font-size:.75rem; font-weight:600;
+    color:var(--accent); letter-spacing:.12em; text-transform:uppercase;
+    border:1px solid var(--accent); border-radius:999px; padding:.15rem .55rem;
+  }
+  h1{
+    font-family:"Bricolage Grotesque", ui-sans-serif, sans-serif;
+    font-size:1.7rem; font-weight:700; margin:0; letter-spacing:-.01em;
+    text-wrap:balance;
+  }
+  .tagline{ color:var(--text-dim); font-size:.9rem; margin:0; }
+
+  .board{
+    display:grid; grid-template-columns: 1.1fr 1fr; gap:1.5rem;
+  }
+  @media (max-width:780px){ .board{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:20px;
+    padding:1.75rem; box-shadow:var(--shadow);
+  }
+
+  /* Timer panel */
+  .timer-panel{ display:flex; flex-direction:column; align-items:center; gap:1.4rem; }
+  .mode-row{ display:flex; gap:.4rem; background:var(--surface-2); padding:.3rem; border-radius:999px; }
+  .mode-btn{
+    border:none; background:transparent; color:var(--text-dim); font:600 .82rem/1 "Source Sans 3", sans-serif;
+    padding:.5rem 1rem; border-radius:999px; cursor:pointer; letter-spacing:.02em;
+  }
+  .mode-btn[aria-pressed="true"]{ background:var(--surface); color:var(--text); box-shadow:var(--shadow); }
+
+  .ring-wrap{ position:relative; width:min(280px, 62vw); aspect-ratio:1; }
+  .ring-wrap svg{ width:100%; height:100%; transform:rotate(-90deg); }
+  .ring-track{ fill:none; stroke:var(--ring-track); stroke-width:10; }
+  .ring-progress{ fill:none; stroke:var(--accent); stroke-width:10; stroke-linecap:round; transition:stroke-dashoffset .3s linear; }
+  .ring-center{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.15rem;
+  }
+  .time{ font-family:"IBM Plex Mono", monospace; font-size:2.6rem; font-weight:600; font-variant-numeric: tabular-nums; letter-spacing:-.02em; }
+  .session-label{ font-size:.78rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.1em; }
+
+  .controls{ display:flex; gap:.6rem; }
+  .btn{
+    font:600 .9rem/1 "Source Sans 3", sans-serif; padding:.7rem 1.3rem; border-radius:12px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); cursor:pointer;
+  }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .btn:focus-visible, .mode-btn:focus-visible, input:focus-visible, .add-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .tally{
+    display:flex; gap:1.5rem; font-family:"IBM Plex Mono", monospace; font-size:.82rem; color:var(--text-dim);
+    border-top:1px solid var(--border); padding-top:1rem; width:100%; justify-content:center;
+  }
+  .tally b{ color:var(--text); font-weight:600; }
+
+  /* Ledger panel */
+  .ledger-panel{ display:flex; flex-direction:column; gap:1rem; }
+  .ledger-head{ display:flex; align-items:center; justify-content:space-between; }
+  .ledger-head h2{ font-family:"Bricolage Grotesque", sans-serif; font-size:1.05rem; margin:0; }
+  .ledger-head span{ font-family:"IBM Plex Mono", monospace; font-size:.78rem; color:var(--text-dim); }
+
+  form.add-row{ display:flex; gap:.5rem; }
+  form.add-row input[type="text"]{
+    flex:1; border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    border-radius:10px; padding:.65rem .8rem; font:500 .92rem "Source Sans 3", sans-serif;
+  }
+  .add-btn{
+    border:none; background:var(--text); color:var(--surface); border-radius:10px; padding:.65rem 1.1rem;
+    font:600 .85rem "Source Sans 3", sans-serif; cursor:pointer;
+  }
+
+  ul.tasks{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+  .task{
+    display:flex; align-items:center; gap:.7rem; padding:.65rem .7rem; border-radius:12px; border:1px solid var(--border);
+    background:var(--surface-2);
+  }
+  .task.done{ opacity:.6; }
+  .task.done .task-title{ text-decoration:line-through; }
+  .check{
+    width:20px; height:20px; border-radius:6px; border:2px solid var(--border); background:var(--surface);
+    display:grid; place-items:center; cursor:pointer; flex:none; color:var(--good);
+  }
+  .task.done .check{ background:var(--good-soft); border-color:var(--good); }
+  .task-title{ flex:1; font-size:.92rem; }
+  .task-sessions{
+    font-family:"IBM Plex Mono", monospace; font-size:.72rem; color:var(--text-dim);
+    background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:.15rem .5rem;
+  }
+  .task-active{ border-color:var(--accent); }
+  .task-pick{
+    border:none; background:transparent; color:var(--text-dim); cursor:pointer; font-size:.72rem;
+    text-decoration:underline; text-underline-offset:2px;
+  }
+  .task-del{ border:none; background:transparent; color:var(--text-dim); cursor:pointer; font-size:1rem; line-height:1; padding:.2rem; }
+  .task-del:hover{ color:var(--accent); }
+  .empty-hint{ color:var(--text-dim); font-size:.85rem; padding:.5rem .2rem; }
+
+  footer{ text-align:center; color:var(--text-dim); font-size:.78rem; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Focus Ledger</h1>
+      <span class="mark">25 / 5 / 15</span>
+    </div>
+  </header>
+  <p class="tagline">Run one task at a time. Every finished session gets written to the ledger.</p>
+
+  <div class="board">
+    <section class="panel timer-panel" aria-label="Timer">
+      <div class="mode-row" role="tablist" aria-label="Session type">
+        <button class="mode-btn" role="tab" data-mode="work" aria-pressed="true">Focus 25</button>
+        <button class="mode-btn" role="tab" data-mode="short" aria-pressed="false">Short 5</button>
+        <button class="mode-btn" role="tab" data-mode="long" aria-pressed="false">Long 15</button>
+      </div>
+
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120">
+          <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-progress" id="ringProgress" cx="60" cy="60" r="52" stroke-dasharray="326.7"></circle>
+        </svg>
+        <div class="ring-center">
+          <div class="time" id="timeDisplay">25:00</div>
+          <div class="session-label" id="sessionLabel">working on —</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="startBtn">Start</button>
+        <button class="btn" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="tally">
+        <span>Sessions today <b id="sessionsToday">0</b></span>
+        <span>Focus minutes <b id="focusMinutes">0</b></span>
+      </div>
+    </section>
+
+    <section class="panel ledger-panel" aria-label="Task ledger">
+      <div class="ledger-head">
+        <h2>Ledger</h2>
+        <span id="doneCount">0 / 0 done</span>
+      </div>
+
+      <form class="add-row" id="addForm">
+        <input type="text" id="taskInput" placeholder="Add a task, e.g. Draft Q3 proposal" maxlength="80" autocomplete="off">
+        <button class="add-btn" type="submit">Add</button>
+      </form>
+
+      <ul class="tasks" id="taskList"></ul>
+      <p class="empty-hint" id="emptyHint">No tasks yet — add one above, then pick it as your active focus.</p>
+    </section>
+  </div>
+
+  <footer>Runs entirely in this tab — tasks and tallies are saved to your browser.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DURATIONS = { work: 25*60, short: 5*60, long: 15*60 };
+  var LABELS = { work: "working on", short: "short break", long: "long break" };
+  var RING_C = 2 * Math.PI * 52;
+
+  var state = load("fl_state", { mode:"work", remaining: DURATIONS.work, running:false, activeTaskId:null,
+    sessionsToday:0, focusSeconds:0, lastDay: todayKey() });
+  var tasks = load("fl_tasks", [
+    { id: id(), title:"Draft Q3 proposal", done:false, sessions:0 },
+    { id: id(), title:"Review open PRs", done:false, sessions:0 },
+    { id: id(), title:"Read chapter 4", done:true, sessions:2 }
+  ]);
+
+  if(state.lastDay !== todayKey()){ state.sessionsToday = 0; state.focusSeconds = 0; state.lastDay = todayKey(); }
+
+  var timeDisplay = document.getElementById("timeDisplay");
+  var sessionLabel = document.getElementById("sessionLabel");
+  var ringProgress = document.getElementById("ringProgress");
+  var startBtn = document.getElementById("startBtn");
+  var resetBtn = document.getElementById("resetBtn");
+  var sessionsTodayEl = document.getElementById("sessionsToday");
+  var focusMinutesEl = document.getElementById("focusMinutes");
+  var taskList = document.getElementById("taskList");
+  var addForm = document.getElementById("addForm");
+  var taskInput = document.getElementById("taskInput");
+  var doneCount = document.getElementById("doneCount");
+  var emptyHint = document.getElementById("emptyHint");
+  var modeBtns = Array.prototype.slice.call(document.querySelectorAll(".mode-btn"));
+
+  ringProgress.setAttribute("stroke-dasharray", RING_C.toFixed(1));
+
+  var tickHandle = null;
+
+  function id(){ return Math.random().toString(36).slice(2, 10); }
+  function todayKey(){ var d=new Date(); return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); }
+  function load(key, fallback){
+    try{ var v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; }
+  }
+  function save(){
+    try{
+      localStorage.setItem("fl_state", JSON.stringify(state));
+      localStorage.setItem("fl_tasks", JSON.stringify(tasks));
+    }catch(e){}
+  }
+  function fmt(sec){
+    var m = Math.floor(sec/60), s = sec%60;
+    return (m<10?"0":"")+m+":"+(s<10?"0":"")+s;
+  }
+
+  function activeTask(){
+    for(var i=0;i<tasks.length;i++){ if(tasks[i].id === state.activeTaskId) return tasks[i]; }
+    return null;
+  }
+
+  function renderTimer(){
+    timeDisplay.textContent = fmt(state.remaining);
+    var t = activeTask();
+    sessionLabel.textContent = state.mode === "work"
+      ? (t ? LABELS.work + " " + t.title : "no task selected")
+      : LABELS[state.mode];
+    var total = DURATIONS[state.mode];
+    var frac = 1 - (state.remaining / total);
+    ringProgress.style.strokeDashoffset = (RING_C * (1 - frac)).toFixed(1);
+    startBtn.textContent = state.running ? "Pause" : "Start";
+    modeBtns.forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.mode === state.mode ? "true":"false"); });
+    sessionsTodayEl.textContent = state.sessionsToday;
+    focusMinutesEl.textContent = Math.round(state.focusSeconds/60);
+  }
+
+  function renderTasks(){
+    taskList.innerHTML = "";
+    var doneN = tasks.filter(function(t){return t.done;}).length;
+    doneCount.textContent = doneN + " / " + tasks.length + " done";
+    emptyHint.style.display = tasks.length ? "none" : "block";
+    tasks.forEach(function(t){
+      var li = document.createElement("li");
+      li.className = "task" + (t.done ? " done":"") + (t.id === state.activeTaskId ? " task-active":"");
+      var check = document.createElement("button");
+      check.className = "check"; check.type="button"; check.setAttribute("aria-label", t.done ? "Mark not done" : "Mark done");
+      check.innerHTML = t.done ? "✓" : "";
+      check.addEventListener("click", function(){ t.done = !t.done; save(); renderTasks(); });
+
+      var title = document.createElement("span");
+      title.className = "task-title"; title.textContent = t.title;
+
+      var sessions = document.createElement("span");
+      sessions.className = "task-sessions"; sessions.textContent = t.sessions + "×";
+
+      var pick = document.createElement("button");
+      pick.className = "task-pick"; pick.type="button";
+      pick.textContent = t.id === state.activeTaskId ? "focused" : "focus";
+      pick.addEventListener("click", function(){ state.activeTaskId = t.id; save(); renderTasks(); renderTimer(); });
+
+      var del = document.createElement("button");
+      del.className = "task-del"; del.type="button"; del.setAttribute("aria-label","Delete task"); del.textContent = "×";
+      del.addEventListener("click", function(){
+        tasks = tasks.filter(function(x){return x.id !== t.id;});
+        if(state.activeTaskId === t.id) state.activeTaskId = null;
+        save(); renderTasks(); renderTimer();
+      });
+
+      li.appendChild(check); li.appendChild(title); li.appendChild(sessions); li.appendChild(pick); li.appendChild(del);
+      taskList.appendChild(li);
+    });
+  }
+
+  function setMode(mode, resetRemaining){
+    state.mode = mode;
+    if(resetRemaining !== false) state.remaining = DURATIONS[mode];
+    save(); renderTimer();
+  }
+
+  function completeSession(){
+    if(state.mode === "work"){
+      state.sessionsToday += 1;
+      state.focusSeconds += DURATIONS.work;
+      var t = activeTask();
+      if(t){ t.sessions += 1; }
+      setMode(state.sessionsToday % 4 === 0 ? "long" : "short");
+    } else {
+      setMode("work");
+    }
+    state.running = false;
+    stopTick();
+    save(); renderTimer(); renderTasks();
+  }
+
+  function tick(){
+    state.remaining -= 1;
+    if(state.remaining <= 0){ completeSession(); return; }
+    save(); renderTimer();
+  }
+
+  function startTick(){ if(tickHandle) return; tickHandle = setInterval(tick, 1000); }
+  function stopTick(){ clearInterval(tickHandle); tickHandle = null; }
+
+  startBtn.addEventListener("click", function(){
+    state.running = !state.running;
+    if(state.running) startTick(); else stopTick();
+    save(); renderTimer();
+  });
+  resetBtn.addEventListener("click", function(){
+    state.running = false; stopTick();
+    state.remaining = DURATIONS[state.mode];
+    save(); renderTimer();
+  });
+  modeBtns.forEach(function(b){
+    b.addEventListener("click", function(){
+      state.running = false; stopTick();
+      setMode(b.dataset.mode);
+    });
+  });
+  addForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var v = taskInput.value.trim();
+    if(!v) return;
+    tasks.push({ id:id(), title:v, done:false, sessions:0 });
+    taskInput.value = "";
+    save(); renderTasks();
+  });
+
+  if(state.running) startTick();
+  renderTimer();
+  renderTasks();
+})();
+</script>

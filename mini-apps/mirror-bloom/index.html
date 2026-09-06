@@ -1,0 +1,282 @@
+<!doctype html>
+<title>Mirror Bloom</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&family=Archivo:wght@500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#0a0a0d;
+    --chamber:#000000;
+    --panel:#141319;
+    --panel-2:#1b1a21;
+    --brass:#c9a227;
+    --brass-light:#eccf6e;
+    --brass-dim:#6b5a29;
+    --text:#efe9d8;
+    --text-dim:#8e8a78;
+    --hairline:#2b2933;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--text); overflow:hidden;
+    font-family:"Archivo", ui-sans-serif, system-ui, sans-serif;
+  }
+  .stage{ position:relative; width:100vw; height:100vh; }
+
+  canvas#scope{
+    position:absolute; inset:0; display:block; width:100%; height:100%;
+    background:var(--chamber);
+  }
+  .vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(circle at 50% 46%, rgba(0,0,0,0) 34%, rgba(0,0,0,.55) 68%, rgba(0,0,0,.92) 100%);
+  }
+  .aperture-ring{
+    position:absolute; left:50%; top:46%; transform:translate(-50%,-50%);
+    width:min(78vh, 92vw); aspect-ratio:1; border-radius:50%;
+    border:2px solid var(--brass-dim); box-shadow: 0 0 0 1px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.5);
+    pointer-events:none;
+  }
+
+  header.title{
+    position:absolute; top:1.4rem; left:50%; transform:translateX(-50%);
+    text-align:center; pointer-events:none;
+  }
+  header.title h1{
+    font-family:"Fraunces", serif; font-style:italic; font-weight:500;
+    font-size:1.5rem; margin:0; color:var(--brass-light); letter-spacing:.02em;
+    text-shadow:0 0 18px rgba(201,162,39,.35);
+  }
+  header.title p{
+    margin:.2rem 0 0; font-size:.72rem; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--text-dim);
+  }
+
+  .rail{
+    position:absolute; left:50%; bottom:1.3rem; transform:translateX(-50%);
+    display:flex; align-items:center; gap:1.1rem;
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--brass-dim); border-radius:999px;
+    padding:.7rem 1.2rem; box-shadow:0 12px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .group{ display:flex; align-items:center; gap:.55rem; }
+  .group + .group{ border-left:1px solid var(--hairline); padding-left:1.1rem; }
+  .label{ font-size:.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text-dim); }
+
+  input[type="range"]{
+    -webkit-appearance:none; width:110px; height:3px; background:var(--hairline); border-radius:2px; outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--brass-light); border:2px solid #3a3115; cursor:pointer; box-shadow:0 0 6px rgba(236,207,110,.6);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--brass-light); border:2px solid #3a3115; cursor:pointer;
+  }
+  #foldVal, #sizeVal{ font-variant-numeric:tabular-nums; font-size:.78rem; color:var(--text); width:1.4em; text-align:right; }
+
+  .swatches{ display:flex; gap:.4rem; }
+  .swatch{
+    width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.15); cursor:pointer;
+    padding:0; box-shadow: inset 0 0 4px rgba(255,255,255,.35);
+  }
+  .swatch[aria-pressed="true"]{ border-color:var(--brass-light); box-shadow:0 0 0 2px rgba(236,207,110,.3), inset 0 0 4px rgba(255,255,255,.35); }
+  .swatch:focus-visible{ outline:2px solid var(--brass-light); outline-offset:2px; }
+
+  button.iconbtn{
+    border:1px solid var(--brass-dim); background:var(--panel-2); color:var(--text);
+    font:600 .74rem "Archivo",sans-serif; letter-spacing:.06em; text-transform:uppercase;
+    padding:.5rem .85rem; border-radius:999px; cursor:pointer;
+  }
+  button.iconbtn:hover{ border-color:var(--brass-light); color:var(--brass-light); }
+  button.iconbtn:focus-visible{ outline:2px solid var(--brass-light); outline-offset:2px; }
+
+  .hint{
+    position:absolute; right:1.4rem; top:1.6rem; max-width:15em; text-align:right;
+    font-size:.72rem; line-height:1.5; color:var(--text-dim); pointer-events:none;
+  }
+  @media (max-width:640px){
+    .rail{ flex-wrap:wrap; justify-content:center; width:92vw; border-radius:20px; gap:.8rem 1rem; }
+    .group + .group{ border-left:none; padding-left:0; }
+    .hint{ display:none; }
+  }
+</style>
+
+<div class="stage">
+  <canvas id="scope"></canvas>
+  <div class="vignette"></div>
+  <div class="aperture-ring"></div>
+
+  <header class="title">
+    <h1>Mirror Bloom</h1>
+    <p>a kaleidoscope for drawing</p>
+  </header>
+
+  <p class="hint">Drag across the glass. Every stroke repeats around the wheel — raise the fold count for finer petals.</p>
+
+  <div class="rail">
+    <div class="group">
+      <span class="label">Fold</span>
+      <input type="range" id="foldSlider" min="3" max="16" step="1" value="8">
+      <span id="foldVal">8</span>
+    </div>
+    <div class="group">
+      <span class="label">Glass</span>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="group">
+      <span class="label">Brush</span>
+      <input type="range" id="sizeSlider" min="1" max="10" step="1" value="3">
+      <span id="sizeVal">3</span>
+    </div>
+    <div class="group">
+      <button class="iconbtn" id="clearBtn" type="button">Clear chamber</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("scope");
+  var ctx = canvas.getContext("2d");
+  var foldSlider = document.getElementById("foldSlider");
+  var sizeSlider = document.getElementById("sizeSlider");
+  var foldVal = document.getElementById("foldVal");
+  var sizeVal = document.getElementById("sizeVal");
+  var clearBtn = document.getElementById("clearBtn");
+  var swatchWrap = document.getElementById("swatches");
+
+  var JEWELS = [
+    { name:"ruby",      hex:"#e0435f" },
+    { name:"amber",     hex:"#e2963a" },
+    { name:"topaz",     hex:"#e8c766" },
+    { name:"emerald",   hex:"#3ea373" },
+    { name:"sapphire",  hex:"#3f7fd6" },
+    { name:"amethyst",  hex:"#9a63d1" },
+    { name:"pearl",     hex:"#f2ede0" }
+  ];
+
+  var fold = 8, brushSize = 3, color = JEWELS[0].hex;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cx = 0, cy = 0;
+  var drawing = false;
+  var last = null;
+
+  function resize(){
+    var w = window.innerWidth || document.documentElement.clientWidth || 1;
+    var h = window.innerHeight || document.documentElement.clientHeight || 1;
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    canvas.style.width = w+"px"; canvas.style.height = h+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    cx = w/2; cy = h * 0.46;
+    ctx.fillStyle = "#000"; ctx.fillRect(0,0,w,h);
+  }
+
+  function buildSwatches(){
+    JEWELS.forEach(function(j, i){
+      var b = document.createElement("button");
+      b.className = "swatch"; b.style.background = j.hex; b.type="button";
+      b.setAttribute("aria-label", j.name);
+      b.setAttribute("aria-pressed", i===0 ? "true":"false");
+      b.addEventListener("click", function(){
+        color = j.hex;
+        Array.prototype.forEach.call(swatchWrap.children, function(c){ c.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+      });
+      swatchWrap.appendChild(b);
+    });
+  }
+
+  function toLocal(clientX, clientY){
+    var r = canvas.getBoundingClientRect();
+    return { x: clientX - r.left - cx, y: clientY - r.top - cy };
+  }
+
+  function drawSegment(p0, p1){
+    var step = (Math.PI * 2) / fold;
+    ctx.lineCap = "round";
+    ctx.lineWidth = brushSize;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = brushSize * 1.6;
+    for(var k=0; k<fold; k++){
+      var ang = step * k;
+      var s = Math.sin(ang), c = Math.cos(ang);
+      [1, -1].forEach(function(mirror){
+        var a0x = p0.x * c - (p0.y*mirror) * s;
+        var a0y = p0.x * s + (p0.y*mirror) * c;
+        var a1x = p1.x * c - (p1.y*mirror) * s;
+        var a1y = p1.x * s + (p1.y*mirror) * c;
+        ctx.beginPath();
+        ctx.moveTo(cx + a0x, cy + a0y);
+        ctx.lineTo(cx + a1x, cy + a1y);
+        ctx.stroke();
+      });
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function pos(e){
+    if(e.touches && e.touches.length) return { x:e.touches[0].clientX, y:e.touches[0].clientY };
+    return { x:e.clientX, y:e.clientY };
+  }
+
+  function start(e){
+    drawing = true;
+    var p = pos(e);
+    last = toLocal(p.x, p.y);
+    drawSegment(last, { x:last.x+0.01, y:last.y+0.01 });
+    e.preventDefault();
+  }
+  function move(e){
+    if(!drawing) return;
+    var p = pos(e);
+    var cur = toLocal(p.x, p.y);
+    drawSegment(last, cur);
+    last = cur;
+    e.preventDefault();
+  }
+  function stop(){ drawing = false; last = null; }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", stop);
+  canvas.addEventListener("touchstart", start, { passive:false });
+  canvas.addEventListener("touchmove", move, { passive:false });
+  canvas.addEventListener("touchend", stop);
+
+  foldSlider.addEventListener("input", function(){ fold = parseInt(foldSlider.value,10); foldVal.textContent = fold; });
+  sizeSlider.addEventListener("input", function(){ brushSize = parseInt(sizeSlider.value,10); sizeVal.textContent = brushSize; });
+  clearBtn.addEventListener("click", function(){
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width/dpr, canvas.height/dpr);
+  });
+
+  window.addEventListener("resize", resize);
+  buildSwatches();
+  resize();
+
+  // gentle opening bloom so the chamber isn't empty at rest
+  (function seedBloom(){
+    var seedColors = [JEWELS[0].hex, JEWELS[4].hex, JEWELS[2].hex];
+    var radii = [70, 130, 190];
+    radii.forEach(function(r, i){
+      color = seedColors[i % seedColors.length];
+      var steps = 40;
+      var prevPt = { x: r, y: 0 };
+      for(var s=1; s<=steps; s++){
+        var t = (s/steps) * Math.PI / fold * 1.4;
+        var pt = { x: r*Math.cos(t), y: r*Math.sin(t) };
+        brushSize = 2;
+        drawSegment(prevPt, pt);
+        prevPt = pt;
+      }
+    });
+    brushSize = parseInt(sizeSlider.value,10);
+    color = JEWELS[0].hex;
+  })();
+})();
+</script>
