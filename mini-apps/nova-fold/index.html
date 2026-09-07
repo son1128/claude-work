@@ -228,12 +228,11 @@
     if(score > best){ best = score; saveBest(best); }
     bestEl.textContent = best;
     removeOverlay();
-    if(won){ showOverlay("Supernova!", "You folded a star all the way to 2048. Keep going, or start fresh.", "Keep playing", function(){ won="continue"; }); }
+    if(won === true){ showOverlay("Supernova!", "You folded a star all the way to 2048. Keep going, or start fresh.", "Keep playing", function(){ won="continue"; }); }
     else if(over){ showOverlay("Field is full", "No more folds available. Start a new field?", "New game", startGame); }
   }
 
   function showOverlay(title, msg, btnText, onClick){
-    if(won === "continue" && title === "Supernova!") return;
     removeOverlay();
     var ov = document.createElement("div");
     ov.className = "overlay"; ov.id = "overlay";

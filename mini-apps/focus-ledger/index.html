@@ -258,8 +258,32 @@
   ringProgress.setAttribute("stroke-dasharray", RING_C.toFixed(1));
 
   var tickHandle = null;
+  var audioCtx = null;
 
   function id(){ return Math.random().toString(36).slice(2, 10); }
+  function ensureAudio(){
+    if(audioCtx) return audioCtx;
+    try{
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = Ctx ? new Ctx() : null;
+    }catch(e){ audioCtx = null; }
+    return audioCtx;
+  }
+  function chime(){
+    var ctx = ensureAudio();
+    if(!ctx) return;
+    try{
+      var now = ctx.currentTime, dur = 0.5;
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now); osc.stop(now + dur);
+    }catch(e){}
+  }
   function todayKey(){ var d=new Date(); return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); }
   function load(key, fallback){
     try{ var v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; }
@@ -350,6 +374,7 @@
     }
     state.running = false;
     stopTick();
+    chime();
     save(); renderTimer(); renderTasks();
   }
 
@@ -363,6 +388,7 @@
   function stopTick(){ clearInterval(tickHandle); tickHandle = null; }
 
   startBtn.addEventListener("click", function(){
+    ensureAudio();
     state.running = !state.running;
     if(state.running) startTick(); else stopTick();
     save(); renderTimer();

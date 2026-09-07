@@ -132,6 +132,7 @@
     </div>
     <div class="group">
       <button class="iconbtn" id="clearBtn" type="button">Clear chamber</button>
+      <button class="iconbtn" id="saveBtn" type="button">Save image</button>
     </div>
   </div>
 </div>
@@ -146,6 +147,7 @@
   var foldVal = document.getElementById("foldVal");
   var sizeVal = document.getElementById("sizeVal");
   var clearBtn = document.getElementById("clearBtn");
+  var saveBtn = document.getElementById("saveBtn");
   var swatchWrap = document.getElementById("swatches");
 
   var JEWELS = [
@@ -253,6 +255,15 @@
   clearBtn.addEventListener("click", function(){
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width/dpr, canvas.height/dpr);
+  });
+
+  saveBtn.addEventListener("click", function(){
+    try{
+      var link = document.createElement("a");
+      link.download = "mirror-bloom.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }catch(e){}
   });
 
   window.addEventListener("resize", resize);
