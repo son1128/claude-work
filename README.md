@@ -20,6 +20,18 @@ start mini-apps/focus-ledger/index.html
 
 To verify a change, open the file in a browser and exercise it manually.
 
+## Python ports
+
+`test-code/` holds standalone Python/Tkinter ports of the three apps above — same logic, translated line-for-line, with no shared code between the two versions:
+
+| App | Script |
+| --- | --- |
+| focus-ledger | [`test-code/focus_ledger.py`](test-code/focus_ledger.py) |
+| mirror-bloom | [`test-code/mirror_bloom.py`](test-code/mirror_bloom.py) |
+| nova-fold | [`test-code/nova_fold.py`](test-code/nova_fold.py) |
+
+Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`, which uses [Pillow](https://pypi.org/project/Pillow/) to save drawings as PNG. Run with e.g. `python test-code/focus_ledger.py`. These are a separate, parallel implementation — changes to the HTML apps are not automatically reflected here and vice versa.
+
 ## Conventions
 
 Every app follows the same shape: no `<html>`/`<head>`/`<body>` wrapper, just `<!doctype html>`, `<title>`, `<meta charset>`, a Google Fonts `<link>`, one `<style>` block, the body markup, and one `<script>` block at the end. All logic runs client-side (vanilla JS, ES5-leaning syntax, no framework); apps that persist state use `localStorage`. No network calls beyond the Google Fonts stylesheet — everything else works fully offline.
