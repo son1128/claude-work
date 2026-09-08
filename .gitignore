@@ -1,0 +1,11 @@
+# Runtime state written by the Python/Tkinter ports (test-code/) — the
+# localStorage-equivalent for those apps, analogous to browser localStorage
+# for the HTML originals. Not source, shouldn't be committed.
+test-code/fl_state.json
+test-code/fl_tasks.json
+test-code/nf_best.json
+
+# Verification artifacts (report pages / screenshots) generated while
+# manually running an app to confirm it works — not source.
+test-code/*_report.html
+test-code/*_screenshot.png

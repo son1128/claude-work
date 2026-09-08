@@ -48,6 +48,26 @@ class MirrorBloomApp:
         self.draw_ctx = ImageDraw.Draw(self.image) if HAS_PIL else None
 
         self._build_ui()
+        self.seed_bloom()
+
+    def seed_bloom(self):
+        """Gentle opening bloom so the chamber isn't empty at rest — ported
+        from the HTML version's seedBloom() IIFE."""
+        seed_colors = [JEWELS[0][1], JEWELS[4][1], JEWELS[2][1]]
+        radii = [70, 130, 190]
+        saved_brush, saved_color = self.brush_size, self.color
+        for i, r in enumerate(radii):
+            self.color = seed_colors[i % len(seed_colors)]
+            steps = 40
+            prev_pt = (r, 0)
+            for s in range(1, steps + 1):
+                t = (s / steps) * (math.pi / self.fold) * 1.4
+                pt = (r * math.cos(t), r * math.sin(t))
+                self.brush_size = 2
+                self.draw_segment(prev_pt, pt)
+                prev_pt = pt
+        self.brush_size, self.color = saved_brush, saved_color
+        self._mark_selected_swatch()
 
     def _build_ui(self):
         self.canvas = tk.Canvas(self.root, width=WIDTH, height=HEIGHT, bg="black", highlightthickness=0)
