@@ -1,0 +1,153 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// 매수·매도 거래량 지표 (Buy / Sell Volume)
+// ─────────────────────────────────────────────────────────────────────────────
+// 각 봉의 거래량을 매수(Buy)와 매도(Sell) 거래량으로 나누어 함께 표시합니다.
+//
+// 분리 방식
+//  1) Intrabar (하위 타임프레임) — 차트 봉 안의 하위 타임프레임 봉들을 가져와
+//     양봉(종가 > 시가)의 거래량은 매수, 음봉(종가 < 시가)의 거래량은 매도로
+//     합산합니다. 보합 봉은 절반씩 나눕니다. 가장 정확하지만 TradingView가
+//     제공하는 하위 타임프레임 데이터 범위 밖의 오래된 봉은 자동으로 2)번 방식으로
+//     대체됩니다.
+//  2) Bar Range (고가·저가 위치) — 종가가 봉의 고가·저가 범위 중 어디에서
+//     끝났는지로 거래량을 비례 배분합니다.
+//        매수 = 거래량 × (종가 − 저가) / (고가 − 저가)
+//        매도 = 거래량 × (고가 − 종가) / (고가 − 저가)
+//
+// ※ 거래소가 제공하는 실제 체결 방향(틱 단위) 데이터가 아닌 "추정치"입니다.
+//
+// 사용법: TradingView → Pine 편집기 → 새로 만들기 → 이 코드 전체 붙여넣기 →
+//        저장 → "차트에 추가"
+//@version=6
+indicator("Buy/Sell Volume (매수·매도 거래량)", shorttitle = "B/S Vol", overlay = false, format = format.volume)
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+const string M_INTRA = "Intrabar (하위 타임프레임)"
+const string M_RANGE = "Bar Range (고가·저가 위치)"
+const string S_STACK = "누적 막대 (Stacked)"
+const string S_MIRROR = "상하 대칭 (Mirror)"
+
+grpCalc  = "계산 방식"
+method   = input.string(M_INTRA, "매수/매도 분리 방식", options = [M_INTRA, M_RANGE], group = grpCalc)
+ltfAuto  = input.bool(true, "하위 타임프레임 자동 선택", group = grpCalc, tooltip = "끄면 아래에서 직접 지정한 하위 타임프레임을 사용합니다.")
+ltfInput = input.timeframe("1", "하위 타임프레임 (수동)", group = grpCalc)
+
+grpView    = "표시"
+viewStyle  = input.string(S_STACK, "표시 형태", options = [S_STACK, S_MIRROR], group = grpView)
+buyColor   = input.color(color.new(#26a69a, 0), "매수 색상", group = grpView)
+sellColor  = input.color(color.new(#ef5350, 0), "매도 색상", group = grpView)
+dimLowVol  = input.bool(true, "평균 이하 거래량은 흐리게", group = grpView)
+showDelta  = input.bool(true, "Delta (매수 − 매도) 선 표시", group = grpView)
+showTable  = input.bool(true, "현재 봉 정보 표 표시", group = grpView)
+
+grpMa   = "거래량 이동평균"
+showMa  = input.bool(true, "이동평균 표시", group = grpMa)
+maLen   = input.int(20, "기간", minval = 1, group = grpMa)
+maColor = input.color(color.new(#ffb300, 0), "색상", group = grpMa)
+
+grpAlert   = "알림 조건"
+spikeMult  = input.float(2.0, "거래량 급증 배수 (× 평균)", minval = 1.0, step = 0.1, group = grpAlert)
+domRatio   = input.float(65.0, "우세 판단 비율 (%)", minval = 50.0, maxval = 100.0, step = 1.0, group = grpAlert)
+
+// ─── 하위 타임프레임 결정 ─────────────────────────────────────────────────────
+chartSec = timeframe.in_seconds()
+autoLtf  = chartSec <= 3600    ? "1"   :      // 1시간 이하  → 1분
+           chartSec <= 14400   ? "5"   :      // 4시간 이하  → 5분
+           chartSec <= 86400   ? "15"  :      // 일봉 이하   → 15분
+           chartSec <= 604800  ? "60"  :      // 주봉 이하   → 1시간
+                                 "240"        // 그 이상     → 4시간
+wantLtf  = ltfAuto ? autoLtf : ltfInput
+// 하위 타임프레임이 차트보다 작을 때만 Intrabar 방식이 의미가 있음
+ltfValid = timeframe.in_seconds(wantLtf) < chartSec
+useIntra = method == M_INTRA and ltfValid
+ltf      = useIntra ? wantLtf : timeframe.period
+
+// ─── 거래량 분리 계산 ────────────────────────────────────────────────────────
+vol = nz(volume)
+
+// 1) Bar Range 방식
+rangeHL = high - low
+float buyRange  = rangeHL > 0 ? vol * (close - low) / rangeHL : vol * 0.5
+float sellRange = vol - buyRange
+
+// 2) Intrabar 방식
+[ltfOpen, ltfClose, ltfVol] = request.security_lower_tf(syminfo.tickerid, ltf, [open, close, volume])
+
+float buyIntra  = 0.0
+float sellIntra = 0.0
+int   nIntra    = ltfVol.size()
+if useIntra and nIntra > 0
+    for i = 0 to nIntra - 1
+        float o = ltfOpen.get(i)
+        float c = ltfClose.get(i)
+        float v = nz(ltfVol.get(i))
+        if c > o
+            buyIntra += v
+        else if c < o
+            sellIntra += v
+        else
+            buyIntra  += v * 0.5
+            sellIntra += v * 0.5
+
+bool  intraOk = useIntra and nIntra > 0 and (buyIntra + sellIntra) > 0
+float buyVol  = intraOk ? buyIntra  : buyRange
+float sellVol = intraOk ? sellIntra : sellRange
+float totVol  = buyVol + sellVol
+float delta   = buyVol - sellVol
+float buyPct  = totVol > 0 ? buyVol / totVol * 100 : 50.0
+
+// ─── 색상 ────────────────────────────────────────────────────────────────────
+volMa   = ta.sma(totVol, maLen)
+isLow   = dimLowVol and not na(volMa) and totVol < volMa
+buyCol  = isLow ? color.new(buyColor,  60) : buyColor
+sellCol = isLow ? color.new(sellColor, 60) : sellColor
+
+// ─── 그리기 ──────────────────────────────────────────────────────────────────
+isMirror = viewStyle == S_MIRROR
+
+// 누적 막대: 전체 거래량(매도색) 위에 매수 거래량(매수색)을 겹쳐 그림
+//            → 아래쪽 = 매수, 위쪽 = 매도
+plot(isMirror ? na : totVol, "매도 거래량 (누적 상단)", sellCol, style = plot.style_columns)
+plot(isMirror ? na : buyVol, "매수 거래량 (누적 하단)", buyCol,  style = plot.style_columns)
+
+// 상하 대칭: 매수는 0선 위, 매도는 0선 아래
+plot(isMirror ? buyVol   : na, "매수 거래량 (대칭)", buyCol,  style = plot.style_columns)
+plot(isMirror ? -sellVol : na, "매도 거래량 (대칭)", sellCol, style = plot.style_columns)
+hline(0, "0 선", isMirror ? color.new(color.gray, 50) : color.new(color.gray, 100))
+
+plot(showMa ? (isMirror ? volMa / 2 : volMa) : na, "거래량 이동평균", maColor, 2)
+plot(showDelta ? delta : na, "Delta (매수 − 매도)", color.new(delta >= 0 ? buyColor : sellColor, 0), 2, plot.style_stepline)
+
+// 데이터 창용 (차트에는 그리지 않음)
+plot(buyPct,  "매수 비율 %", display = display.data_window)
+plot(totVol,  "전체 거래량", display = display.data_window)
+
+// ─── 정보 표 ─────────────────────────────────────────────────────────────────
+var table info = table.new(position.top_right, 2, 5, bgcolor = color.new(color.black, 80), border_width = 1)
+if showTable and barstate.islast
+    string modeTxt = intraOk ? "Intrabar (" + ltf + ")" : "Bar Range"
+    info.cell(0, 0, "방식",   text_color = color.gray, text_size = size.small)
+    info.cell(1, 0, modeTxt,  text_color = color.white, text_size = size.small)
+    info.cell(0, 1, "매수",   text_color = buyColor, text_size = size.small)
+    info.cell(1, 1, str.tostring(buyVol, format.volume) + "  (" + str.tostring(buyPct, "#.0") + "%)", text_color = buyColor, text_size = size.small)
+    info.cell(0, 2, "매도",   text_color = sellColor, text_size = size.small)
+    info.cell(1, 2, str.tostring(sellVol, format.volume) + "  (" + str.tostring(100 - buyPct, "#.0") + "%)", text_color = sellColor, text_size = size.small)
+    info.cell(0, 3, "Delta",  text_color = color.gray, text_size = size.small)
+    info.cell(1, 3, str.tostring(delta, format.volume), text_color = delta >= 0 ? buyColor : sellColor, text_size = size.small)
+    info.cell(0, 4, "합계",   text_color = color.gray, text_size = size.small)
+    info.cell(1, 4, str.tostring(totVol, format.volume), text_color = color.white, text_size = size.small)
+
+// ─── 거래량 데이터 확인 ──────────────────────────────────────────────────────
+cumVol = ta.cum(vol)
+if barstate.islast and cumVol == 0
+    runtime.error("이 종목은 거래량 데이터를 제공하지 않습니다.")
+
+// ─── 알림 ────────────────────────────────────────────────────────────────────
+isSpike   = not na(volMa) and totVol > volMa * spikeMult
+buySpike  = isSpike and buyPct >= domRatio
+sellSpike = isSpike and (100 - buyPct) >= domRatio
+
+alertcondition(buySpike,  "매수 우세 거래량 급증", "{{ticker}} 매수 우세 거래량 급증 (거래량 {{volume}})")
+alertcondition(sellSpike, "매도 우세 거래량 급증", "{{ticker}} 매도 우세 거래량 급증 (거래량 {{volume}})")
+alertcondition(ta.cross(delta, 0), "Delta 0선 교차", "{{ticker}} 매수−매도 Delta가 0선을 교차했습니다")
