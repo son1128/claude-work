@@ -1,0 +1,454 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// FusionMain — 메인 차트 지표 융합 (EMA · 이치모쿠 · 오더블록 · 그리드 · 지지/저항 · 멀티TF FVG · 거래량)
+// ─────────────────────────────────────────────────────────────────────────────
+// 차트 하나에 따로 올려 쓰던 메인 차트 지표 7종을 한 스크립트로 합치고,
+// 각 지표의 방향(+1 강세 / 0 중립 / −1 약세)을 더한 "융합 점수(−8 ~ +8)"로
+// 현재 우위를 판정합니다.
+//
+//  ① EMA 240           : 종가 > EMA → +1, 아래 → −1
+//  ② 이치모쿠 (3,13,26,1) : 구름 위/아래 (±1) + 전환선 vs 기준선 (±1)
+//  ③ 오더블록           : 거래량 피벗 기반 OB (LuxAlgo Order Block Detector 개념 재구성)
+//                        하락 OB 안 → −1, 상승 OB 안 → +1, 그 외 최근 생성 OB 방향
+//  ④ 그리드            : N봉 고가·저가 범위를 등분. 중간선 위 + EMA 상승 → LONG(+1),
+//                        중간선 아래 + EMA 하락 → SHORT(−1), 그 외 NEUTRAL(0)
+//  ⑤ 지지/저항          : 피벗 고점·저점 레벨. 가장 최근에 저항 돌파 → +1, 지지 이탈 → −1
+//  ⑥ FVG               : 현재 차트 + 상위 TF(15m/1H/4H/D) 공정가치갭, 최근 생성 방향 ±1
+//  ⑦ 거래량            : 평균 이상 거래량의 양봉 +1 / 음봉 −1
+//
+// ※ 원본 지표(LuxAlgo, Nephew_Sam, ChartPrime, GridBotDir 등)의 코드를 복사한 것이
+//    아니라, 화면에 보이는 설정값과 개념을 바탕으로 새로 구현했습니다.
+//    값이 원본과 조금 다를 수 있습니다.
+//
+// 사용법: TradingView → Pine 편집기 → 새로 만들기 → 인디케이터 → 전체 붙여넣기 →
+//        저장 → "차트에 추가"
+//@version=6
+indicator("FusionMain [EMA·Ichimoku·OB·Grid·SR·FVG·Vol]", shorttitle = "FusionMain", overlay = true,
+     max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, max_bars_back = 1000)
+
+// ─── 사용자 정의 타입 ─────────────────────────────────────────────────────────
+type FVG
+    box   bx
+    float top
+    float btm
+    bool  bull
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+G_EMA  = "① EMA"
+G_ICHI = "② 이치모쿠"
+G_OB   = "③ 오더블록"
+G_GRID = "④ 그리드"
+G_SR   = "⑤ 지지/저항"
+G_FVG  = "⑥ FVG (멀티 타임프레임)"
+G_VOL  = "⑦ 거래량"
+G_SIG  = "⑧ 융합 신호 / 대시보드"
+
+showEma   = input.bool(true, "EMA 표시", group = G_EMA)
+emaLen    = input.int(240, "EMA 길이", minval = 1, group = G_EMA)
+emaCol    = input.color(color.new(#787b86, 0), "EMA 색상", group = G_EMA)
+
+showIchi  = input.bool(true, "이치모쿠 표시", group = G_ICHI)
+ichiConv  = input.int(3, "전환선 길이", minval = 1, group = G_ICHI)
+ichiBase  = input.int(13, "기준선 길이", minval = 1, group = G_ICHI)
+ichiSpanB = input.int(26, "선행스팬 B 길이", minval = 1, group = G_ICHI)
+ichiDisp  = input.int(1, "변위 (Displacement)", minval = 1, group = G_ICHI)
+
+showOB    = input.bool(true, "오더블록 표시", group = G_OB)
+obLen     = input.int(5, "거래량 피벗 길이", minval = 1, group = G_OB)
+obBullMax = input.int(3, "유지할 상승 OB 개수", minval = 1, maxval = 50, group = G_OB)
+obBearMax = input.int(3, "유지할 하락 OB 개수", minval = 1, maxval = 50, group = G_OB)
+obMitig   = input.string("Wick", "무효화 기준", options = ["Wick", "Close"], group = G_OB,
+     tooltip = "Wick: 꼬리가 OB를 뚫으면 삭제 / Close: 몸통(시가·종가)이 뚫어야 삭제")
+obBullCol = input.color(color.new(#089981, 80), "상승 OB 색상", group = G_OB)
+obBearCol = input.color(color.new(#f23645, 80), "하락 OB 색상", group = G_OB)
+
+showGrid  = input.bool(true, "그리드 표시", group = G_GRID)
+gridLook  = input.int(100, "그리드 범위 (봉 수)", minval = 5, maxval = 900, group = G_GRID)
+gridCount = input.int(10, "그리드 칸 수", minval = 2, maxval = 50, group = G_GRID)
+gridCol   = input.color(color.new(#b2b5be, 55), "그리드 내부선 색상", group = G_GRID)
+
+showSR    = input.bool(true, "지지/저항 표시", group = G_SR)
+srLen     = input.int(8, "피벗 좌우 길이", minval = 1, group = G_SR)
+srMax     = input.int(6, "유지할 레벨 수 (저항·지지 각각)", minval = 1, maxval = 50, group = G_SR)
+srResCol  = input.color(color.new(#f23645, 20), "저항 색상", group = G_SR)
+srSupCol  = input.color(color.new(#089981, 20), "지지 색상", group = G_SR)
+
+showFvg    = input.bool(true, "FVG 표시", group = G_FVG)
+fvgChart   = input.bool(false, "현재 차트 FVG", group = G_FVG,
+     tooltip = "렌코 차트에서는 벽돌 3개가 연속되면 매번 FVG가 생기므로 기본값은 꺼져 있습니다.")
+fvgTf1     = input.timeframe("15", "TF 1", inline = "t1", group = G_FVG)
+fvgOn1     = input.bool(true, "사용", inline = "t1", group = G_FVG)
+fvgTf2     = input.timeframe("60", "TF 2", inline = "t2", group = G_FVG)
+fvgOn2     = input.bool(true, "사용", inline = "t2", group = G_FVG)
+fvgTf3     = input.timeframe("240", "TF 3", inline = "t3", group = G_FVG)
+fvgOn3     = input.bool(true, "사용", inline = "t3", group = G_FVG)
+fvgTf4     = input.timeframe("D", "TF 4", inline = "t4", group = G_FVG)
+fvgOn4     = input.bool(true, "사용", inline = "t4", group = G_FVG)
+fvgMax     = input.int(20, "최대 FVG 박스 수", minval = 1, maxval = 200, group = G_FVG)
+fvgBullCol = input.color(color.new(#2962ff, 85), "상승 FVG 색상", group = G_FVG)
+fvgBearCol = input.color(color.new(#ff9800, 85), "하락 FVG 색상", group = G_FVG)
+
+volLen       = input.int(10, "거래량 MA 길이", minval = 1, group = G_VOL)
+volMult      = input.float(2.0, "급증 배수 (× 평균)", minval = 1.0, step = 0.1, group = G_VOL)
+showVolSpike = input.bool(true, "거래량 급증 표시", group = G_VOL)
+
+sigTh     = input.int(4, "신호 임계 점수 (1~8)", minval = 1, maxval = 8, group = G_SIG)
+showSig   = input.bool(true, "매수/매도 신호 표시", group = G_SIG)
+showDash  = input.bool(true, "대시보드 표시", group = G_SIG)
+dashPos   = input.string("오른쪽 위", "대시보드 위치", options = ["오른쪽 위", "오른쪽 아래", "왼쪽 위", "왼쪽 아래"], group = G_SIG)
+colorBars = input.bool(false, "융합 점수로 봉 색칠", group = G_SIG)
+
+// ─── 공통 ────────────────────────────────────────────────────────────────────
+INVISIBLE = color.new(color.black, 100)
+BULL_C    = #089981
+BEAR_C    = #f23645
+NEUT_C    = #b2b5be
+
+fmt(float v) =>
+    na(v) ? "—" : str.tostring(v, format.mintick)
+
+// ─── ① EMA ───────────────────────────────────────────────────────────────────
+ema     = ta.ema(close, emaLen)
+emaBias = close > ema ? 1 : -1
+plot(showEma ? ema : na, "EMA", emaCol, 2)
+
+// ─── ② 이치모쿠 ──────────────────────────────────────────────────────────────
+donchian(int len) =>
+    math.avg(ta.lowest(low, len), ta.highest(high, len))
+
+conv  = donchian(ichiConv)
+base  = donchian(ichiBase)
+spanA = math.avg(conv, base)
+spanB = donchian(ichiSpanB)
+
+plot(showIchi ? conv : na, "전환선", color.new(#2962ff, 0))
+plot(showIchi ? base : na, "기준선", color.new(#b71c1c, 0))
+plot(showIchi ? close : na, "후행스팬", color.new(#43a047, 40), offset = -ichiDisp + 1)
+pA = plot(showIchi ? spanA : na, "선행스팬 A", color.new(#a5d6a7, 0), offset = ichiDisp - 1)
+pB = plot(showIchi ? spanB : na, "선행스팬 B", color.new(#ef9a9a, 0), offset = ichiDisp - 1)
+fill(pA, pB, spanA > spanB ? color.new(#43a047, 88) : color.new(#f23645, 88), "구름")
+
+// 현재 봉 위치의 구름 = (변위 − 1) 봉 전에 계산된 선행스팬
+cloudTop  = math.max(spanA[ichiDisp - 1], spanB[ichiDisp - 1])
+cloudBot  = math.min(spanA[ichiDisp - 1], spanB[ichiDisp - 1])
+cloudBias = close > cloudTop ? 1 : close < cloudBot ? -1 : 0
+tkBias    = conv > base ? 1 : conv < base ? -1 : 0
+
+// ─── ③ 오더블록 (거래량 피벗) ────────────────────────────────────────────────
+var array<box> bullOBs = array.new<box>()
+var array<box> bearOBs = array.new<box>()
+var int obSwing   = 0   // 1: 직전 스윙이 저점(하락 끝) / 0: 고점(상승 끝)
+var int obLastDir = 0
+
+obUpper  = ta.highest(high, obLen)
+obLower  = ta.lowest(low, obLen)
+obSwing := high[obLen] > obUpper ? 0 : low[obLen] < obLower ? 1 : obSwing
+volPivot = ta.pivothigh(volume, obLen, obLen)
+
+if not na(volPivot)
+    if obSwing == 1
+        // 하락 스윙 저점에서 거래량 피크 → 상승 OB (저가 ~ 중간값)
+        bullOBs.unshift(box.new(bar_index - obLen, hl2[obLen], bar_index, low[obLen],
+             border_color = showOB ? color.new(BULL_C, 30) : INVISIBLE,
+             bgcolor = showOB ? obBullCol : INVISIBLE, extend = extend.right))
+        obLastDir := 1
+        if bullOBs.size() > obBullMax
+            box.delete(bullOBs.pop())
+    else
+        // 상승 스윙 고점에서 거래량 피크 → 하락 OB (중간값 ~ 고가)
+        bearOBs.unshift(box.new(bar_index - obLen, high[obLen], bar_index, hl2[obLen],
+             border_color = showOB ? color.new(BEAR_C, 30) : INVISIBLE,
+             bgcolor = showOB ? obBearCol : INVISIBLE, extend = extend.right))
+        obLastDir := -1
+        if bearOBs.size() > obBearMax
+            box.delete(bearOBs.pop())
+
+obBullMit = obMitig == "Wick" ? low : math.min(open, close)
+obBearMit = obMitig == "Wick" ? high : math.max(open, close)
+
+bool  inBullOB   = false
+bool  inBearOB   = false
+float nearBullOB = na   // 현재가 아래 가장 가까운 상승 OB 상단
+float nearBearOB = na   // 현재가 위 가장 가까운 하락 OB 하단
+
+if bullOBs.size() > 0
+    for i = bullOBs.size() - 1 to 0
+        bx = bullOBs.get(i)
+        if obBullMit < bx.get_bottom()
+            box.delete(bx)
+            bullOBs.remove(i)
+        else
+            t = bx.get_top()
+            b = bx.get_bottom()
+            if close <= t and close >= b
+                inBullOB := true
+            if t <= close and (na(nearBullOB) or t > nearBullOB)
+                nearBullOB := t
+
+if bearOBs.size() > 0
+    for i = bearOBs.size() - 1 to 0
+        bx = bearOBs.get(i)
+        if obBearMit > bx.get_top()
+            box.delete(bx)
+            bearOBs.remove(i)
+        else
+            t = bx.get_top()
+            b = bx.get_bottom()
+            if close <= t and close >= b
+                inBearOB := true
+            if b >= close and (na(nearBearOB) or b < nearBearOB)
+                nearBearOB := b
+
+obBias = inBearOB ? -1 : inBullOB ? 1 : obLastDir
+
+// ─── ④ 그리드 ────────────────────────────────────────────────────────────────
+gTop   = ta.highest(high, gridLook)
+gBot   = ta.lowest(low, gridLook)
+gRange = gTop - gBot
+gMid   = math.avg(gTop, gBot)
+gStep  = gRange / gridCount
+gPos   = gRange > 0 ? (close - gBot) / gRange : 0.5
+emaUp  = ema > ema[5]
+
+gridBias   = close > gMid and emaUp ? 1 : close < gMid and not emaUp ? -1 : 0
+gridDirTxt = gridBias == 1 ? "LONG" : gridBias == -1 ? "SHORT" : "NEUTRAL"
+
+gIdx   = gStep > 0 ? math.min(math.floor((close - gBot) / gStep), gridCount - 1) : 0
+gBelow = gBot + gIdx * gStep
+gAbove = gBelow + gStep
+
+plot(showGrid ? gTop : na, "그리드 상단", color.new(BEAR_C, 30), 2, plot.style_stepline)
+plot(showGrid ? gBot : na, "그리드 하단", color.new(BULL_C, 30), 2, plot.style_stepline)
+plot(showGrid ? gMid : na, "그리드 중간", color.new(#ff9800, 30), 1, plot.style_stepline)
+
+var array<line> gridLines = array.new<line>()
+if barstate.islast
+    while gridLines.size() > 0
+        line.delete(gridLines.pop())
+    if showGrid and gStep > 0
+        for i = 1 to gridCount - 1
+            lvl = gBot + gStep * i
+            gridLines.push(line.new(bar_index - gridLook + 1, lvl, bar_index + 5, lvl,
+                 color = gridCol, style = line.style_dotted))
+
+// ─── ⑤ 지지/저항 (피벗) ──────────────────────────────────────────────────────
+var array<float> resLv = array.new<float>()
+var array<line>  resLn = array.new<line>()
+var array<float> supLv = array.new<float>()
+var array<line>  supLn = array.new<line>()
+
+srPH = ta.pivothigh(high, srLen, srLen)
+srPL = ta.pivotlow(low, srLen, srLen)
+
+if not na(srPH)
+    resLv.unshift(srPH)
+    resLn.unshift(line.new(bar_index - srLen, srPH, bar_index, srPH, extend = extend.right,
+         color = showSR ? srResCol : INVISIBLE, width = 1))
+    if resLv.size() > srMax
+        resLv.pop()
+        line.delete(resLn.pop())
+
+if not na(srPL)
+    supLv.unshift(srPL)
+    supLn.unshift(line.new(bar_index - srLen, srPL, bar_index, srPL, extend = extend.right,
+         color = showSR ? srSupCol : INVISIBLE, width = 1))
+    if supLv.size() > srMax
+        supLv.pop()
+        line.delete(supLn.pop())
+
+// 가격이 넘어선(깨진) 레벨은 점선으로 표시
+if resLv.size() > 0
+    for i = 0 to resLv.size() - 1
+        resLn.get(i).set_style(close > resLv.get(i) ? line.style_dashed : line.style_solid)
+if supLv.size() > 0
+    for i = 0 to supLv.size() - 1
+        supLn.get(i).set_style(close < supLv.get(i) ? line.style_dashed : line.style_solid)
+
+nearestAbove(array<float> a, array<float> b, float px) =>
+    float best = na
+    for v in a
+        if v > px and (na(best) or v < best)
+            best := v
+    for v in b
+        if v > px and (na(best) or v < best)
+            best := v
+    best
+
+nearestBelow(array<float> a, array<float> b, float px) =>
+    float best = na
+    for v in a
+        if v < px and (na(best) or v > best)
+            best := v
+    for v in b
+        if v < px and (na(best) or v > best)
+            best := v
+    best
+
+srRes = nearestAbove(resLv, supLv, close)
+srSup = nearestBelow(resLv, supLv, close)
+
+srBreakUp = not na(srRes[1]) and close > srRes[1]
+srBreakDn = not na(srSup[1]) and close < srSup[1]
+
+var int srBias = 0
+if srBreakUp
+    srBias := 1
+if srBreakDn
+    srBias := -1
+
+plotshape(showSR and srBreakUp, "저항 돌파", shape.triangleup, location.belowbar, color.new(BULL_C, 0), size = size.tiny)
+plotshape(showSR and srBreakDn, "지지 이탈", shape.triangledown, location.abovebar, color.new(BEAR_C, 0), size = size.tiny)
+
+// ─── ⑥ FVG (현재 차트 + 상위 타임프레임) ─────────────────────────────────────
+var array<FVG> fvgs = array.new<FVG>()
+var int fvgLastDir = 0
+
+addFvg(bool isBull, float top, float btm, string tag) =>
+    bg = showFvg ? (isBull ? fvgBullCol : fvgBearCol) : INVISIBLE
+    tc = showFvg ? color.new(#9598a1, 0) : INVISIBLE
+    bx = box.new(bar_index, top, bar_index + 1, btm, border_color = INVISIBLE, bgcolor = bg,
+         extend = extend.right, text = tag, text_color = tc, text_size = size.tiny,
+         text_halign = text.align_right)
+    fvgs.unshift(FVG.new(bx, top, btm, isBull))
+    if fvgs.size() > fvgMax
+        FVG old = fvgs.pop()
+        box.delete(old.bx)
+
+tfHigher(string tf) =>
+    timeframe.in_seconds(tf) > timeframe.in_seconds(timeframe.period)
+
+tfTag(string tf) =>
+    int s = timeframe.in_seconds(tf)
+    s < 3600 ? "m" + str.tostring(math.round(s / 60)) : s < 86400 ? "H" + str.tostring(math.round(s / 3600)) : s < 604800 ? "D" : s < 2419200 ? "W" : "M"
+
+// 상위 TF의 "마감된" 봉 기준 FVG ([1] 오프셋 + lookahead_on → 리페인트 없음)
+htfFvg() =>
+    bullG = low[1] > high[3]
+    bearG = high[1] < low[3]
+    [bullG, bearG, low[1], high[3], low[3], high[1], time]
+
+// 렌코 등 비표준 차트에서도 상위 TF는 일반 캔들 데이터를 사용
+htfTicker = ticker.standard(syminfo.tickerid)
+
+[b1, s1, bT1, bB1, sT1, sB1, t1] = request.security(htfTicker, fvgTf1, htfFvg(), lookahead = barmerge.lookahead_on)
+[b2, s2, bT2, bB2, sT2, sB2, t2] = request.security(htfTicker, fvgTf2, htfFvg(), lookahead = barmerge.lookahead_on)
+[b3, s3, bT3, bB3, sT3, sB3, t3] = request.security(htfTicker, fvgTf3, htfFvg(), lookahead = barmerge.lookahead_on)
+[b4, s4, bT4, bB4, sT4, sB4, t4] = request.security(htfTicker, fvgTf4, htfFvg(), lookahead = barmerge.lookahead_on)
+
+procHtf(bool on, string tf, bool isNew, bool bG, bool sG, float bT, float bB, float sT, float sB) =>
+    int dir = 0
+    if on and isNew and tfHigher(tf)
+        if bG
+            addFvg(true, bT, bB, tfTag(tf))
+            dir := 1
+        if sG
+            addFvg(false, sT, sB, tfTag(tf))
+            dir := -1
+    dir
+
+d1 = procHtf(fvgOn1, fvgTf1, t1 != t1[1], b1, s1, bT1, bB1, sT1, sB1)
+d2 = procHtf(fvgOn2, fvgTf2, t2 != t2[1], b2, s2, bT2, bB2, sT2, sB2)
+d3 = procHtf(fvgOn3, fvgTf3, t3 != t3[1], b3, s3, bT3, bB3, sT3, sB3)
+d4 = procHtf(fvgOn4, fvgTf4, t4 != t4[1], b4, s4, bT4, bB4, sT4, sB4)
+
+// 상위 TF 우선 (D > 4H > 1H > 15m)
+if d1 != 0
+    fvgLastDir := d1
+if d2 != 0
+    fvgLastDir := d2
+if d3 != 0
+    fvgLastDir := d3
+if d4 != 0
+    fvgLastDir := d4
+
+// 현재 차트 FVG
+cBull = low > high[2]
+cBear = high < low[2]
+if fvgChart and barstate.isconfirmed
+    if cBull
+        addFvg(true, low, high[2], "")
+        fvgLastDir := 1
+    if cBear
+        addFvg(false, low[2], high, "")
+        fvgLastDir := -1
+
+// 메워진 FVG 제거 + 가장 가까운 미체결 FVG
+float nearBullFvg = na   // 현재가 아래 상승 FVG 상단
+float nearBearFvg = na   // 현재가 위 하락 FVG 하단
+if fvgs.size() > 0
+    for i = fvgs.size() - 1 to 0
+        f = fvgs.get(i)
+        filled = f.bull ? close < f.btm : close > f.top
+        if filled
+            box.delete(f.bx)
+            fvgs.remove(i)
+        else
+            if f.bull and f.top <= close and (na(nearBullFvg) or f.top > nearBullFvg)
+                nearBullFvg := f.top
+            if not f.bull and f.btm >= close and (na(nearBearFvg) or f.btm < nearBearFvg)
+                nearBearFvg := f.btm
+
+fvgBias = fvgLastDir
+
+// ─── ⑦ 거래량 ────────────────────────────────────────────────────────────────
+volMA    = ta.sma(volume, volLen)
+relVol   = volMA > 0 ? volume / volMA : na
+volSpike = volume > volMA * volMult
+volBias  = volume > volMA ? (close > open ? 1 : close < open ? -1 : 0) : 0
+
+plotshape(showVolSpike and volSpike and close >= open, "거래량 급증 (매수)", shape.circle, location.belowbar, color.new(BULL_C, 30), size = size.tiny)
+plotshape(showVolSpike and volSpike and close < open, "거래량 급증 (매도)", shape.circle, location.abovebar, color.new(BEAR_C, 30), size = size.tiny)
+
+// ─── ⑧ 융합 점수 · 신호 ──────────────────────────────────────────────────────
+score = emaBias + cloudBias + tkBias + obBias + gridBias + srBias + fvgBias + volBias
+
+longSig  = score >= sigTh and score[1] < sigTh
+shortSig = score <= -sigTh and score[1] > -sigTh
+
+plotshape(showSig and longSig, "융합 매수 신호", shape.labelup, location.belowbar, color.new(BULL_C, 0), text = "L", textcolor = color.white, size = size.small)
+plotshape(showSig and shortSig, "융합 매도 신호", shape.labeldown, location.abovebar, color.new(BEAR_C, 0), text = "S", textcolor = color.white, size = size.small)
+
+scoreCol = score >= sigTh ? BULL_C : score >= 2 ? #7fd8be : score <= -sigTh ? BEAR_C : score <= -2 ? #f7a1a8 : NEUT_C
+barcolor(colorBars ? scoreCol : na)
+
+// 데이터 창에서 확인용 (차트에는 그리지 않음)
+plot(score, "융합 점수", display = display.data_window)
+
+// ─── 알림 ────────────────────────────────────────────────────────────────────
+alertcondition(longSig, "융합 매수 신호", "FusionMain: 매수 우위 전환 ({{ticker}} {{close}})")
+alertcondition(shortSig, "융합 매도 신호", "FusionMain: 매도 우위 전환 ({{ticker}} {{close}})")
+alertcondition(ta.crossover(close, ema), "EMA 상향 돌파", "FusionMain: EMA 상향 돌파 ({{ticker}} {{close}})")
+alertcondition(ta.crossunder(close, ema), "EMA 하향 이탈", "FusionMain: EMA 하향 이탈 ({{ticker}} {{close}})")
+alertcondition(srBreakUp, "저항 돌파", "FusionMain: 저항 돌파 ({{ticker}} {{close}})")
+alertcondition(srBreakDn, "지지 이탈", "FusionMain: 지지 이탈 ({{ticker}} {{close}})")
+alertcondition(ta.crossover(close, cloudTop), "구름 상향 돌파", "FusionMain: 이치모쿠 구름 상향 돌파 ({{ticker}} {{close}})")
+alertcondition(ta.crossunder(close, cloudBot), "구름 하향 이탈", "FusionMain: 이치모쿠 구름 하향 이탈 ({{ticker}} {{close}})")
+
+// ─── 대시보드 ────────────────────────────────────────────────────────────────
+dashPosition = dashPos == "오른쪽 위" ? position.top_right : dashPos == "오른쪽 아래" ? position.bottom_right : dashPos == "왼쪽 위" ? position.top_left : position.bottom_left
+var table dash = table.new(dashPosition, 3, 10, bgcolor = color.new(#131722, 10), frame_color = color.new(#434651, 0),
+     frame_width = 1, border_color = color.new(#434651, 0), border_width = 1)
+
+biasTxt(int b) =>
+    b > 0 ? "▲ 강세" : b < 0 ? "▼ 약세" : "● 중립"
+
+biasCol(int b) =>
+    b > 0 ? BULL_C : b < 0 ? BEAR_C : NEUT_C
+
+setRow(int r, string name, string val, string verdict, color vc) =>
+    table.cell(dash, 0, r, name, text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(dash, 1, r, val, text_color = color.white, text_size = size.small, text_halign = text.align_right)
+    table.cell(dash, 2, r, verdict, text_color = vc, text_size = size.small)
+
+if showDash and barstate.islast
+    verdict = score >= sigTh ? "강한 매수 우위" : score >= 2 ? "매수 우위" : score <= -sigTh ? "강한 매도 우위" : score <= -2 ? "매도 우위" : "중립"
+    setRow(0, "FusionMain", "값", "판정", color.white)
+    setRow(1, "EMA " + str.tostring(emaLen), fmt(ema), biasTxt(emaBias), biasCol(emaBias))
+    setRow(2, "구름", fmt(cloudBot) + " ~ " + fmt(cloudTop), biasTxt(cloudBias), biasCol(cloudBias))
+    setRow(3, "전환 / 기준", fmt(conv) + " / " + fmt(base), biasTxt(tkBias), biasCol(tkBias))
+    setRow(4, "OB 저항 / 지지", fmt(nearBearOB) + " / " + fmt(nearBullOB), biasTxt(obBias), biasCol(obBias))
+    setRow(5, "그리드 " + gridDirTxt, fmt(gBot) + " ~ " + fmt(gTop) + " (" + str.tostring(gPos * 100, "#") + "%)", biasTxt(gridBias), biasCol(gridBias))
+    setRow(6, "S/R 저항 / 지지", fmt(srRes) + " / " + fmt(srSup), biasTxt(srBias), biasCol(srBias))
+    setRow(7, "FVG 위 / 아래", fmt(nearBearFvg) + " / " + fmt(nearBullFvg), biasTxt(fvgBias), biasCol(fvgBias))
+    setRow(8, "거래량 / MA" + str.tostring(volLen), na(relVol) ? "—" : str.tostring(relVol, "#.##") + "x", biasTxt(volBias), biasCol(volBias))
+    setRow(9, "융합 점수", str.tostring(score) + " / 8", verdict, scoreCol)
