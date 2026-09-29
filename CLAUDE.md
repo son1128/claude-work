@@ -10,6 +10,7 @@ Current apps:
 - `mini-apps/focus-ledger/` — Pomodoro timer + task ledger
 - `mini-apps/mirror-bloom/` — kaleidoscope drawing toy (canvas)
 - `mini-apps/nova-fold/` — 2048-style tile-merging game
+- `mini-apps/cascade-desk/` — judge-cascade simulator (cheap judge + frontier escalation research desk). It's the worked example for the `.claude/skills/judge-cascade` skill; its model constants live in one `MODEL` object, and it must keep its "simulation, not measurements" notice visible
 
 ## Working with an app
 
@@ -25,7 +26,7 @@ To verify a change works, open the file in a browser and exercise it manually (o
 
 Each `index.html` is fully self-contained: no `<html>`/`<head>`/`<body>` wrapper tags, just `<!doctype html>`, `<title>`, `<meta charset>`, a Google Fonts `<link>`, one `<style>` block, the body markup, and one `<script>` block at the end. Follow this shape for new apps or edits — don't split into separate CSS/JS files or add a bundler.
 
-**Theming**: colors are CSS custom properties on `:root`. `focus-ledger` and `nova-fold` define a dark palette twice, so both an OS-level preference and a possible `data-theme="dark"` override work:
+**Theming**: colors are CSS custom properties on `:root`. `focus-ledger`, `nova-fold` and `cascade-desk` define a dark palette twice, so both an OS-level preference and a possible `data-theme="dark"` override work:
 ```css
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ /* dark values */ } }
 :root[data-theme="dark"]{ /* same dark values */ }

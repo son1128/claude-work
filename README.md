@@ -9,6 +9,7 @@ A collection of self-contained single-file HTML "mini-apps." Each app is one sta
 | [`mini-apps/focus-ledger`](mini-apps/focus-ledger/index.html) | Pomodoro timer + task ledger |
 | [`mini-apps/mirror-bloom`](mini-apps/mirror-bloom/index.html) | Kaleidoscope drawing toy (canvas) |
 | [`mini-apps/nova-fold`](mini-apps/nova-fold/index.html) | 2048-style tile-merging game |
+| [`mini-apps/cascade-desk`](mini-apps/cascade-desk/index.html) | Judge-cascade simulator: a research desk where a cheap judge decides every fork and a frontier model only takes the unsure ones |
 
 ## Running an app
 
@@ -19,6 +20,16 @@ start mini-apps/focus-ledger/index.html
 ```
 
 To verify a change, open the file in a browser and exercise it manually.
+
+## Skills
+
+`.claude/skills/judge-cascade/` is a Claude Code skill for designing, tuning and auditing "cheap judge first, frontier model only when unsure" LLM pipelines. It includes:
+
+- `SKILL.md`: the procedure (map forks, measure calibration, pick τ with the full cost in view, audit third-party claims)
+- `references/cost-and-calibration.md`: the escalation, cost and calibration formulas
+- `scripts/threshold_sweep.py`: reliability table plus threshold sweep from a labeled CSV (standard library only; try `--demo`)
+
+`mini-apps/cascade-desk` is the worked example the skill points to. The Python ports below don't cover it.
 
 ## Python ports
 
