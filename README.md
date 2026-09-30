@@ -29,7 +29,7 @@ To verify a change, open the file in a browser and exercise it manually.
 - `references/cost-and-calibration.md`: the escalation, cost and calibration formulas
 - `scripts/threshold_sweep.py`: reliability table plus threshold sweep from a labeled CSV (standard library only; try `--demo`)
 
-`mini-apps/cascade-desk` is the worked example the skill points to. The Python ports below don't cover it.
+`mini-apps/cascade-desk` is the worked example the skill points to. The background analysis (Korean) that motivated both is in [`docs/jev-research-desk-analysis.md`](docs/jev-research-desk-analysis.md). The Python ports below don't cover it.
 
 ## Python ports
 
