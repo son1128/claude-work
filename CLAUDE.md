@@ -11,6 +11,8 @@ Current apps:
 - `mini-apps/mirror-bloom/` — kaleidoscope drawing toy (canvas)
 - `mini-apps/nova-fold/` — 2048-style tile-merging game
 
+`firestore-rules/` is the one exception to the no-tooling rule: a small npm project with Firestore security rules for a sample CRM and Vitest tests run against the Firestore emulator (`npm install && npm test` inside that folder; needs Java for the emulator). It is unrelated to the mini-apps and their conventions below don't apply to it.
+
 ## Working with an app
 
 There is no dev server or build step. Open the file directly, e.g.:

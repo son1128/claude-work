@@ -32,6 +32,10 @@ To verify a change, open the file in a browser and exercise it manually.
 
 Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`, which uses [Pillow](https://pypi.org/project/Pillow/) to save drawings as PNG. Run with e.g. `python test-code/focus_ledger.py`. These are a separate, parallel implementation — changes to the HTML apps are not automatically reflected here and vice versa.
 
+## Firestore rules
+
+`firestore-rules/` holds role-based Firestore security rules for a sample CRM ("ClientBase") plus emulator tests — unrelated to the mini-apps. Unlike the rest of the repo it is an npm project: run `npm install && npm test` inside it (needs Node.js 20+ and Java 11+). See [`firestore-rules/README.md`](firestore-rules/README.md).
+
 ## Conventions
 
 Every app follows the same shape: no `<html>`/`<head>`/`<body>` wrapper, just `<!doctype html>`, `<title>`, `<meta charset>`, a Google Fonts `<link>`, one `<style>` block, the body markup, and one `<script>` block at the end. All logic runs client-side (vanilla JS, ES5-leaning syntax, no framework); apps that persist state use `localStorage`. No network calls beyond the Google Fonts stylesheet — everything else works fully offline.

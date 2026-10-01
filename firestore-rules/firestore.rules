@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() {
+      return get(/databases/$(db)/documents/users/$(request.auth.uid)).data;
+    }
+    function isCrm(col) {
+      return col in ['contacts', 'companies', 'deals', 'notes'];
+    }
+    // 딜을 제외한 공용 데이터
+    function isShared(col) {
+      return col in ['contacts', 'companies', 'notes'];
+    }
+    function inTeam(teamId) { return signedIn() && me().teamId == teamId; }
+    function hasRole(roles) { return me().role in roles; }
+    function keepsTeamAndAuthor() {
+      return request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.createdBy == resource.data.createdBy;
+    }
+    // 딜 담당자로 지정할 수 있는 사람: 같은 팀의 관리자·영업
+    function isAssignable(uid) {
+      let u = get(/databases/$(db)/documents/users/$(uid)).data;
+      return u.teamId == me().teamId && u.role in ['admin', 'sales'];
+    }
+
+    match /users/{uid} {
+      // 본인, 또는 같은 팀 관리자만 읽기
+      allow read: if signedIn() && (request.auth.uid == uid
+        || (inTeam(resource.data.teamId) && hasRole(['admin'])));
+      // 관리자는 같은 팀원의 role만 변경. 본인 role과 teamId는 변경 불가.
+      allow update: if signedIn() && request.auth.uid != uid
+        && inTeam(resource.data.teamId) && hasRole(['admin'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['admin', 'sales', 'viewer'];
+      // 계정 추가·삭제와 팀 배정은 콘솔/Admin SDK에서만
+      allow create, delete: if false;
+    }
+
+    // 연락처·회사·노트 (읽기는 딜 포함 모든 CRM 데이터)
+    match /{col}/{id} {
+      allow read: if isCrm(col) && inTeam(resource.data.teamId);
+      allow create: if isShared(col) && inTeam(request.resource.data.teamId)
+        && hasRole(['admin', 'sales'])
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isShared(col) && inTeam(resource.data.teamId)
+        && hasRole(['admin', 'sales']) && keepsTeamAndAuthor();
+      allow delete: if isShared(col) && inTeam(resource.data.teamId)
+        && (hasRole(['admin'])
+          || (hasRole(['sales']) && resource.data.createdBy == request.auth.uid));
+    }
+
+    // 딜: 영업은 본인이 담당인 딜만. 담당자 변경은 관리자만.
+    match /deals/{id} {
+      allow create: if inTeam(request.resource.data.teamId)
+        && request.resource.data.createdBy == request.auth.uid
+        && ((hasRole(['sales'])
+              && request.resource.data.ownerUid == request.auth.uid)
+          || (hasRole(['admin'])
+              && isAssignable(request.resource.data.ownerUid)));
+      allow update: if inTeam(resource.data.teamId) && keepsTeamAndAuthor()
+        && ((hasRole(['sales'])
+              && resource.data.ownerUid == request.auth.uid
+              && request.resource.data.ownerUid == resource.data.ownerUid)
+          || (hasRole(['admin'])
+              && isAssignable(request.resource.data.ownerUid)));
+      allow delete: if inTeam(resource.data.teamId)
+        && (hasRole(['admin'])
+          || (hasRole(['sales']) && resource.data.ownerUid == request.auth.uid));
+    }
+  }
+}
