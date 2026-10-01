@@ -9,3 +9,7 @@ test-code/nf_best.json
 # manually running an app to confirm it works — not source.
 test-code/*_report.html
 test-code/*_screenshot.png
+
+# firestore-rules/: npm dependencies and emulator logs written by `npm test`.
+firestore-rules/node_modules/
+firestore-rules/*-debug.log
