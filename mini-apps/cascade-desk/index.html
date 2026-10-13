@@ -1,0 +1,757 @@
+<!doctype html>
+<title>Cascade Desk</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f4f3f7;
+    --surface:#ffffff;
+    --surface-2:#eeedf3;
+    --border:#dcdae4;
+    --text:#1b1a24;
+    --text-dim:#5f5d6e;
+    --text-muted:#8a8898;
+    --accent:#d4246e;
+    --accent-ink:#ffffff;
+    --accent-soft:#fbe0ec;
+    --series:#2a78d6;
+    --judge:#d4246e;
+    --llm:#6d6a80;
+    --code:#8a8898;
+    --disk:#4e4b5e;
+    --warn:#b35c00;
+    --grid:#e6e4ec;
+    --shadow:0 1px 2px rgba(25,20,40,.04), 0 8px 24px rgba(25,20,40,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0d0c12;
+      --surface:#16151e;
+      --surface-2:#1e1c28;
+      --border:#2c2a3a;
+      --text:#f1eff8;
+      --text-dim:#a6a3b8;
+      --text-muted:#76738a;
+      --accent:#ff4f93;
+      --accent-ink:#1a0710;
+      --accent-soft:#3a1426;
+      --series:#3987e5;
+      --judge:#ff4f93;
+      --llm:#a6a3b8;
+      --code:#76738a;
+      --disk:#c9c6d8;
+      --warn:#f0a040;
+      --grid:#24222f;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d0c12; --surface:#16151e; --surface-2:#1e1c28; --border:#2c2a3a;
+    --text:#f1eff8; --text-dim:#a6a3b8; --text-muted:#76738a;
+    --accent:#ff4f93; --accent-ink:#1a0710; --accent-soft:#3a1426;
+    --series:#3987e5; --judge:#ff4f93; --llm:#a6a3b8; --code:#76738a; --disk:#c9c6d8;
+    --warn:#f0a040; --grid:#24222f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:1180px; margin:0 auto; padding:1.8rem 16px 3rem; display:flex; flex-direction:column; gap:1rem; }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+
+  header{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:1rem; }
+  h1{ font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:1.9rem; margin:0; letter-spacing:-.02em; }
+  h1 em{ font-style:normal; color:var(--accent); }
+  .sub{ margin:.25rem 0 0; color:var(--text-dim); font-size:.86rem; }
+  .stats{ display:flex; flex-wrap:wrap; gap:.5rem; }
+  .stat{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.45rem .8rem; min-width:84px; box-shadow:var(--shadow); }
+  .stat .label{ font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); }
+  .stat .value{ font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:1.15rem; font-variant-numeric:tabular-nums; }
+  .stat.hot .value{ color:var(--accent); }
+
+  .notice{ border:1px dashed var(--border); border-radius:10px; padding:.55rem .8rem; color:var(--text-dim); font-size:.8rem; background:var(--surface-2); }
+  .notice strong{ color:var(--text); }
+
+  .grid{ display:grid; grid-template-columns:320px 1fr; gap:1rem; align-items:start; }
+  .col{ display:flex; flex-direction:column; gap:1rem; min-width:0; }
+  .panel{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1rem; box-shadow:var(--shadow); min-width:0; }
+  .panel h2{ font-family:"Space Grotesk", sans-serif; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; margin:0 0 .75rem; color:var(--text-dim); display:flex; justify-content:space-between; gap:.5rem; }
+  .panel h2 span{ color:var(--accent); font-family:"IBM Plex Mono", monospace; letter-spacing:0; }
+
+  .btn-row{ display:flex; gap:.4rem; flex-wrap:wrap; }
+  button, select, input[type=number]{
+    font:500 .82rem "IBM Plex Sans", sans-serif; color:var(--text); background:var(--surface-2);
+    border:1px solid var(--border); border-radius:8px; padding:.45rem .75rem;
+  }
+  button{ cursor:pointer; transition:border-color .15s, background .15s; }
+  button:hover{ border-color:var(--accent); }
+  button.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  button:focus-visible, select:focus-visible, input:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .field{ display:flex; flex-direction:column; gap:.3rem; margin-top:.85rem; }
+  .field label{ font-size:.75rem; color:var(--text-dim); display:flex; justify-content:space-between; }
+  .field label b{ font-family:"IBM Plex Mono", monospace; color:var(--text); font-weight:600; }
+  .field .hint{ font-size:.72rem; color:var(--text-muted); }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  .two{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+  .two input{ width:100%; }
+
+  .spend{ display:flex; flex-direction:column; gap:.5rem; }
+  .spend .row{ display:flex; justify-content:space-between; gap:.5rem; font-size:.82rem; color:var(--text-dim); }
+  .spend .row b{ font-family:"IBM Plex Mono", monospace; color:var(--text); font-weight:500; }
+  .spend .big{ font-family:"IBM Plex Mono", monospace; font-size:1.9rem; font-weight:600; color:var(--accent); line-height:1; }
+  .spend hr{ border:0; border-top:1px solid var(--border); margin:.25rem 0; width:100%; }
+  .saving{ font-size:.8rem; padding:.45rem .6rem; border-radius:8px; background:var(--surface-2); }
+  .saving b{ font-family:"IBM Plex Mono", monospace; }
+
+  .flow{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.35rem; }
+  .node{ display:grid; grid-template-columns:62px 1fr auto; align-items:center; gap:.6rem; padding:.45rem .6rem; border-radius:9px; background:var(--surface-2); border-left:3px solid var(--code); }
+  .node.judge{ border-left-color:var(--judge); }
+  .node.llm{ border-left-color:var(--llm); }
+  .node.disk{ border-left-color:var(--disk); }
+  .node.out{ border-left-color:var(--text); }
+  .node.flash{ background:var(--accent-soft); }
+  .kind{ font-family:"IBM Plex Mono", monospace; font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); }
+  .node > div{ min-width:0; }
+  .node .name{ font-weight:600; font-size:.84rem; }
+  .node .detail{ font-size:.72rem; color:var(--text-dim); font-family:"IBM Plex Mono", monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .node .count{ font-family:"IBM Plex Mono", monospace; font-weight:600; text-align:right; }
+  .node .count small{ display:block; font-weight:400; font-size:.66rem; color:var(--text-dim); }
+  .branch{ margin-left:1.4rem; }
+
+  table{ width:100%; border-collapse:collapse; font-size:.8rem; }
+  th{ text-align:left; font-weight:500; color:var(--text-dim); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; padding:.35rem .4rem; border-bottom:1px solid var(--border); }
+  td{ padding:.4rem .4rem; border-bottom:1px solid var(--grid); }
+  td.n, th.n{ text-align:right; font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; }
+  .table-scroll{ overflow-x:auto; }
+
+  .charts{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .chart-box{ position:relative; }
+  .chart-box h3{ margin:0 0 .15rem; font-size:.84rem; font-weight:600; }
+  .chart-box p{ margin:0 0 .4rem; font-size:.72rem; color:var(--text-dim); }
+  svg.chart{ width:100%; height:auto; display:block; overflow:visible; touch-action:none; }
+  svg.chart text{ font-family:"IBM Plex Mono", monospace; font-size:10px; fill:var(--text-muted); }
+  .tip{ position:absolute; pointer-events:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:.4rem .55rem; font-size:.72rem; box-shadow:var(--shadow); white-space:nowrap; display:none; z-index:2; }
+  .tip b{ font-family:"IBM Plex Mono", monospace; }
+  details{ margin-top:.75rem; font-size:.8rem; }
+  summary{ cursor:pointer; color:var(--text-dim); }
+
+  .log{ list-style:none; margin:0; padding:0; font-family:"IBM Plex Mono", monospace; font-size:.74rem; display:flex; flex-direction:column; gap:.2rem; max-height:300px; overflow:auto; }
+  .log li{ display:grid; grid-template-columns:44px 60px 1fr auto; gap:.5rem; color:var(--text-dim); }
+  .log .fork{ color:var(--text); }
+  .log .esc{ color:var(--accent); }
+  .log .wrong{ color:var(--warn); }
+  .legend{ display:flex; flex-wrap:wrap; gap:.8rem; font-size:.72rem; color:var(--text-dim); margin-top:.6rem; }
+  .legend i{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:.3rem; vertical-align:-1px; }
+
+  .vault{ display:flex; flex-direction:column; gap:.4rem; }
+  .vbar{ display:grid; grid-template-columns:78px 1fr 36px; align-items:center; gap:.5rem; font-size:.76rem; color:var(--text-dim); }
+  .vbar .track{ height:8px; background:var(--surface-2); border-radius:4px; overflow:hidden; }
+  .vbar .fill{ height:100%; background:var(--disk); border-radius:4px; width:0; transition:width .3s; }
+  .vbar .n{ font-family:"IBM Plex Mono", monospace; text-align:right; color:var(--text); }
+
+  footer{ color:var(--text-muted); font-size:.74rem; line-height:1.5; }
+
+  @media (max-width: 860px){
+    .grid{ grid-template-columns:1fr; }
+    .charts{ grid-template-columns:1fr; }
+    .node{ grid-template-columns:44px 1fr auto; gap:.45rem; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Cascade <em>Desk</em></h1>
+      <p class="sub">A research desk where a cheap judge decides every fork and a frontier model only takes the unsure ones. The LLM only reads and writes.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><div class="label">Screened</div><div class="value" id="sScreened">0</div></div>
+      <div class="stat"><div class="label">Notes</div><div class="value" id="sNotes">0</div></div>
+      <div class="stat"><div class="label">Escalated</div><div class="value" id="sEsc">0</div></div>
+      <div class="stat hot"><div class="label">To brief</div><div class="value" id="sBrief">0</div></div>
+    </div>
+  </header>
+
+  <p class="notice"><strong>Simulation.</strong> Every number here comes from the toy model in this page and the settings you choose. None of it is a measurement of any real product or model. Use it to build intuition about thresholds, calibration and where the money actually goes.</p>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel" aria-label="Controls">
+        <h2>Controls <span id="clock">item 0</span></h2>
+        <div class="btn-row">
+          <button class="primary" id="runBtn" aria-pressed="false">Run</button>
+          <button id="stepBtn">Step</button>
+          <button id="dayBtn">+200 items</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+        <div class="field">
+          <label for="speed">Speed</label>
+          <select id="speed">
+            <option value="2">2 items / s</option>
+            <option value="8" selected>8 items / s</option>
+            <option value="30">30 items / s</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tau">Escalation threshold τ <b id="tauOut">0.85</b></label>
+          <input type="range" id="tau" min="0.5" max="1" step="0.01" value="0.85">
+          <span class="hint">Forks where the cheap judge's confidence is below τ go to the frontier model.</span>
+        </div>
+        <div class="field">
+          <label for="judgeType">Cheap judge</label>
+          <select id="judgeType">
+            <option value="calibrated">Calibrated (accuracy ≈ confidence)</option>
+            <option value="overconfident">Overconfident (accuracy &lt; confidence)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Prices, $ per 1,000 judgments</label>
+          <div class="two">
+            <input type="number" id="pCheap" min="0" step="0.01" aria-label="Cheap judge price per 1000 judgments">
+            <input type="number" id="pFrontier" min="0" step="0.5" aria-label="Frontier price per 1000 judgments">
+          </div>
+          <span class="hint">Left: cheap judge. Right: frontier model.</span>
+        </div>
+        <div class="field">
+          <label>LLM work, $ per item</label>
+          <div class="two">
+            <input type="number" id="pRead" min="0" step="0.001" aria-label="LLM read cost per item">
+            <input type="number" id="pWrite" min="0" step="0.001" aria-label="LLM write cost per note">
+          </div>
+          <span class="hint">Left: read a source. Right: write a note. The cascade doesn't reduce these.</span>
+        </div>
+        <div class="field">
+          <label for="fAcc">Frontier accuracy <b id="fAccOut">0.97</b></label>
+          <input type="range" id="fAcc" min="0.8" max="1" step="0.005" value="0.97">
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Spend">
+        <h2>Spend <span id="callsOut">0 calls</span></h2>
+        <div class="spend">
+          <div class="big mono" id="totalOut">$0.000</div>
+          <div class="row">total, cascade</div>
+          <hr>
+          <div class="row">cheap judge <b id="cCheap">$0</b></div>
+          <div class="row">+ frontier (escalations) <b id="cEsc">$0</b></div>
+          <div class="row">LLM reads + writes <b id="cLlm">$0</b></div>
+          <hr>
+          <div class="row">frontier judges every fork <b id="cFront">$0</b></div>
+          <div class="saving" id="savingJudge"></div>
+          <div class="saving" id="savingTotal"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Pipeline">
+        <h2>Pipeline <span>sources → screen → desks → verify → memory → judge → you</span></h2>
+        <ol class="flow" id="flow"></ol>
+        <div class="legend">
+          <span><i style="background:var(--judge)"></i>judge · decides</span>
+          <span><i style="background:var(--llm)"></i>llm · reads, writes</span>
+          <span><i style="background:var(--code)"></i>code · plumbing</span>
+          <span><i style="background:var(--disk)"></i>disk · memory</span>
+          <span><i style="background:var(--text)"></i>out · you</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Forks">
+        <h2>Forks <span id="escRate">0% escalated</span></h2>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Fork</th><th>Type</th><th class="n">Calls</th><th class="n">Escalated</th><th class="n">Cascade acc.</th><th class="n">Cheap-only acc.</th></tr></thead>
+            <tbody id="forkBody"></tbody>
+          </table>
+        </div>
+        <p class="sub" id="lostOut"></p>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-label="Threshold sweep">
+    <h2>Threshold sweep <span id="sweepNote"></span></h2>
+    <div class="charts">
+      <div class="chart-box">
+        <h3>Cascade accuracy by τ</h3>
+        <p>Share of forks decided correctly. Dashed line = current τ.</p>
+        <svg class="chart" id="chartAcc" viewBox="0 0 420 200" role="img" aria-label="Cascade accuracy by threshold"></svg>
+        <div class="tip" id="tipAcc"></div>
+      </div>
+      <div class="chart-box">
+        <h3>Judgment cost by τ, % of frontier-only</h3>
+        <p>Cheap judge on every fork plus frontier on the escalated ones.</p>
+        <svg class="chart" id="chartCost" viewBox="0 0 420 200" role="img" aria-label="Judgment cost by threshold"></svg>
+        <div class="tip" id="tipCost"></div>
+      </div>
+    </div>
+    <details>
+      <summary>Table view</summary>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th class="n">τ</th><th class="n">Escalated</th><th class="n">Accuracy</th><th class="n">Cost vs frontier</th></tr></thead>
+          <tbody id="sweepBody"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-label="Vault">
+      <h2>Vault <span id="vaultTotal">0 notes</span></h2>
+      <div class="vault" id="vault"></div>
+      <p class="sub">Duplicates are caught before a note is written, so they cost no write.</p>
+    </section>
+    <section class="panel" aria-label="Run log">
+      <h2>Run log <span>latest first</span></h2>
+      <ul class="log" id="log"></ul>
+      <div class="legend"><span class="esc">▲ escalated to frontier</span><span class="wrong">✕ final verdict wrong</span></div>
+    </section>
+  </div>
+
+  <footer>
+    Model: the cheap judge's confidence c is drawn between 0.5 and 1. A calibrated judge is right with probability c; an overconfident one with 0.5 + 0.72·(c − 0.5). The frontier is right with the chosen accuracy, a little less on low-confidence (harder) items. Ground-truth rates per fork are fixed constants in the page's <span class="mono">MODEL</span> object. Settings are saved in this browser only.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var MODEL = {
+    sources: [
+      { id:"arxiv",  desk:"papers", w:0.38 },
+      { id:"github", desk:"repos",  w:0.34 },
+      { id:"feeds",  desk:"market", w:0.28 }
+    ],
+    desks: ["papers", "repos", "market"],
+    relations: ["new", "related", "revises", "duplicate"],
+    relationPrior: [0.45, 0.25, 0.15, 0.15],
+    pRelevant: 0.45,     // screen: truly worth reading
+    pDeskMatch: 0.85,    // route: true desk follows the source
+    pHolds: 0.80,        // verify: claim actually holds
+    pGood: 0.85,         // judge: note is good enough to keep
+    pMatters: 0.30,      // score: matters to the user
+    confSkew: 0.2,       // c = 0.5 + 0.5 * u^confSkew  (smaller = more confident)
+    overSlope: 0.72,     // overconfident judge: p(correct) = 0.5 + overSlope*(c-0.5)
+    hardPenalty: 0.12,   // frontier accuracy drop on the hardest items
+    sweepSamples: 4000
+  };
+
+  var FORKS = [
+    { id:"screen", name:"worth reading?", type:"BOOL" },
+    { id:"route",  name:"which desk?",    type:"CHOICE" },
+    { id:"verify", name:"claim holds?",   type:"BOOL" },
+    { id:"memory", name:"new or known?",  type:"CHOICE" },
+    { id:"judge",  name:"keep note?",     type:"BOOL" },
+    { id:"score",  name:"matters to you?",type:"SCORE" }
+  ];
+
+  var KEY = "cd_settings";
+  var DEFAULTS = { tau:0.85, judgeType:"calibrated", pCheap:0.05, pFrontier:12, pRead:0.004, pWrite:0.002, fAcc:0.97, speed:8 };
+
+  function load(key, fallback){ try{ var v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; } }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){} }
+
+  var cfg = (function(){
+    var saved = load(KEY, {}), out = {}, k;
+    for(k in DEFAULTS){ out[k] = (saved[k] !== undefined && saved[k] !== null) ? saved[k] : DEFAULTS[k]; }
+    return out;
+  })();
+
+  // Seeded RNG so a reset replays the same stream of items.
+  function mulberry32(a){
+    return function(){
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  var rng;
+
+  function pick(weights){
+    var r = rng(), acc = 0, i;
+    for(i = 0; i < weights.length; i++){ acc += weights[i]; if(r < acc) return i; }
+    return weights.length - 1;
+  }
+  function otherThan(options, truth){
+    var rest = options.filter(function(o){ return o !== truth; });
+    return rest[Math.floor(rng() * rest.length)];
+  }
+  function drawConf(r){ return 0.5 + 0.5 * Math.pow(r(), MODEL.confSkew); }
+  function cheapP(c){ return cfg.judgeType === "overconfident" ? 0.5 + MODEL.overSlope * (c - 0.5) : c; }
+  function frontierP(c){ return Math.max(0, cfg.fAcc - MODEL.hardPenalty * (1 - c) * 2); }
+
+  var S;
+  function fresh(){
+    rng = mulberry32(20260929);
+    var forks = {};
+    FORKS.forEach(function(f){ forks[f.id] = { calls:0, esc:0, right:0, cheapRight:0, last:"" }; });
+    S = {
+      items:0, screened:0, skipped:0, lostAtScreen:0, reads:0, dropped:0, rejected:0, dups:0,
+      notes:0, brief:0, archive:0, desks:{ papers:0, repos:0, market:0 },
+      vault:{ "new":0, related:0, revises:0 }, src:{ arxiv:0, github:0, feeds:0 },
+      forks:forks, log:[], flash:""
+    };
+  }
+
+  // One fork through the cascade: cheap judge first, frontier if unsure.
+  function decide(forkId, options, truth){
+    var f = S.forks[forkId];
+    var c = drawConf(rng);
+    var cheapOk = rng() < cheapP(c);
+    var cheapVerdict = cheapOk ? truth : otherThan(options, truth);
+    var escalated = c < cfg.tau;
+    var verdict = cheapVerdict, ok = cheapOk;
+    if(escalated){
+      ok = rng() < frontierP(c);
+      verdict = ok ? truth : otherThan(options, truth);
+      f.esc++;
+    }
+    f.calls++;
+    if(ok) f.right++;
+    if(cheapOk) f.cheapRight++;
+    f.last = verdict + " · " + c.toFixed(2);
+    S.log.unshift({ n:S.items, fork:forkId, verdict:verdict, c:c, esc:escalated, ok:ok });
+    if(S.log.length > 40) S.log.pop();
+    S.flash = forkId;
+    return verdict;
+  }
+
+  function stepItem(){
+    S.items++;
+    var src = MODEL.sources[pick(MODEL.sources.map(function(s){ return s.w; }))];
+    S.src[src.id]++;
+    S.screened++;
+
+    var relevant = rng() < MODEL.pRelevant;
+    if(decide("screen", ["read","skip"], relevant ? "read" : "skip") === "skip"){
+      S.skipped++; if(relevant) S.lostAtScreen++;
+      return;
+    }
+
+    var trueDesk = rng() < MODEL.pDeskMatch ? src.desk : otherThan(MODEL.desks, src.desk);
+    var desk = decide("route", MODEL.desks, trueDesk);
+    S.desks[desk]++; S.reads++;
+
+    var holds = rng() < MODEL.pHolds;
+    if(decide("verify", ["holds","fails"], holds ? "holds" : "fails") === "fails"){ S.dropped++; return; }
+
+    var rel = decide("memory", MODEL.relations, MODEL.relations[pick(MODEL.relationPrior)]);
+    if(rel === "duplicate"){ S.dups++; return; }
+    S.vault[rel]++; S.notes++;
+
+    var good = rng() < MODEL.pGood;
+    if(decide("judge", ["accept","reject"], good ? "accept" : "reject") === "reject"){ S.rejected++; return; }
+
+    var matters = rng() < MODEL.pMatters;
+    if(decide("score", ["brief","archive"], matters ? "brief" : "archive") === "brief") S.brief++;
+    else S.archive++;
+  }
+
+  // ---------- rendering ----------
+  function $(id){ return document.getElementById(id); }
+  function money(v){ return "$" + (v < 1 ? v.toFixed(4) : v.toFixed(2)); }
+  function pct(v){ return (v * 100).toFixed(1) + "%"; }
+
+  function totals(){
+    var calls = 0, esc = 0;
+    FORKS.forEach(function(f){ calls += S.forks[f.id].calls; esc += S.forks[f.id].esc; });
+    var cheap = calls * cfg.pCheap / 1000;
+    var escCost = esc * cfg.pFrontier / 1000;
+    var llm = S.reads * cfg.pRead + S.notes * cfg.pWrite;
+    var front = calls * cfg.pFrontier / 1000;
+    return { calls:calls, esc:esc, cheap:cheap, escCost:escCost, llm:llm, front:front };
+  }
+
+  function node(kind, name, detail, count, sub, extraCls){
+    var li = document.createElement("li");
+    li.className = "node " + kind + (extraCls ? " " + extraCls : "");
+    var k = document.createElement("span"); k.className = "kind"; k.textContent = kind === "judge" ? "judge" : kind;
+    var mid = document.createElement("div");
+    var n = document.createElement("div"); n.className = "name"; n.textContent = name;
+    var d = document.createElement("div"); d.className = "detail"; d.textContent = detail;
+    mid.appendChild(n); mid.appendChild(d);
+    var c = document.createElement("div"); c.className = "count"; c.textContent = count;
+    if(sub){ var s = document.createElement("small"); s.textContent = sub; c.appendChild(s); }
+    li.appendChild(k); li.appendChild(mid); li.appendChild(c);
+    return li;
+  }
+  function judgeNode(id, extraCls){
+    var f = S.forks[id], meta = FORKS.filter(function(x){ return x.id === id; })[0];
+    return node("judge", meta.name, meta.type + (f.last ? " · " + f.last : ""), f.calls, f.esc + " escalated",
+      (S.flash === id ? "flash" : "") + (extraCls ? " " + extraCls : ""));
+  }
+
+  function renderFlow(){
+    var ol = $("flow");
+    ol.textContent = "";
+    ol.appendChild(node("code", "sources", "arxiv " + S.src.arxiv + " · github " + S.src.github + " · feeds " + S.src.feeds, S.screened, "in"));
+    ol.appendChild(judgeNode("screen"));
+    ol.appendChild(node("disk", "skipped", S.lostAtScreen + " were actually relevant", S.skipped, "", "branch"));
+    ol.appendChild(judgeNode("route"));
+    ol.appendChild(node("llm", "desks read", "papers " + S.desks.papers + " · repos " + S.desks.repos + " · market " + S.desks.market, S.reads, "reads"));
+    ol.appendChild(judgeNode("verify"));
+    ol.appendChild(node("disk", "dropped", "claim didn't hold", S.dropped, "", "branch"));
+    ol.appendChild(judgeNode("memory"));
+    ol.appendChild(node("disk", "duplicates", "merged, no write", S.dups, "", "branch"));
+    ol.appendChild(node("llm", "write note", "into the vault", S.notes, "writes"));
+    ol.appendChild(judgeNode("judge"));
+    ol.appendChild(node("disk", "rejected", "note not kept", S.rejected, "", "branch"));
+    ol.appendChild(judgeNode("score"));
+    ol.appendChild(node("disk", "archive", "kept, not sent", S.archive, "", "branch"));
+    ol.appendChild(node("out", "brief", "what you actually read", S.brief, "items"));
+  }
+
+  function renderForks(){
+    var tb = $("forkBody");
+    tb.textContent = "";
+    FORKS.forEach(function(meta){
+      var f = S.forks[meta.id], tr = document.createElement("tr");
+      var cells = [
+        meta.name, meta.type, String(f.calls),
+        f.calls ? pct(f.esc / f.calls) : "–",
+        f.calls ? pct(f.right / f.calls) : "–",
+        f.calls ? pct(f.cheapRight / f.calls) : "–"
+      ];
+      cells.forEach(function(v, i){
+        var td = document.createElement("td"); td.textContent = v;
+        if(i >= 2) td.className = "n";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    $("lostOut").textContent = S.lostAtScreen
+      ? S.lostAtScreen + " relevant sources were skipped at the screen. That error can't be fixed later, which is why the screen may deserve its own, stricter τ."
+      : "";
+  }
+
+  function renderSpend(t){
+    var total = t.cheap + t.escCost + t.llm;
+    var totalFront = t.front + t.llm;
+    $("totalOut").textContent = money(total);
+    $("cCheap").textContent = money(t.cheap);
+    $("cEsc").textContent = money(t.escCost);
+    $("cLlm").textContent = money(t.llm);
+    $("cFront").textContent = money(t.front);
+    $("callsOut").textContent = t.calls + " calls";
+    var jd = t.front ? 1 - (t.cheap + t.escCost) / t.front : 0;
+    var td = totalFront ? 1 - total / totalFront : 0;
+    $("savingJudge").textContent = "";
+    $("savingTotal").textContent = "";
+    appendSaving($("savingJudge"), "Judgment cost: ", pct(jd), " lower than frontier-only.");
+    appendSaving($("savingTotal"), "Total incl. reads and writes: ", pct(td), " lower. This is the honest number.");
+  }
+  function appendSaving(el, a, b, c){
+    el.appendChild(document.createTextNode(a));
+    var bb = document.createElement("b"); bb.textContent = b; el.appendChild(bb);
+    el.appendChild(document.createTextNode(c));
+  }
+
+  function renderVault(){
+    var box = $("vault"), max = 1, keys = ["new","related","revises"];
+    box.textContent = "";
+    keys.forEach(function(k){ max = Math.max(max, S.vault[k]); });
+    max = Math.max(max, S.dups);
+    keys.concat(["duplicate"]).forEach(function(k){
+      var v = k === "duplicate" ? S.dups : S.vault[k];
+      var row = document.createElement("div"); row.className = "vbar";
+      var l = document.createElement("span"); l.textContent = k;
+      var tr = document.createElement("div"); tr.className = "track";
+      var fi = document.createElement("div"); fi.className = "fill"; fi.style.width = (v / max * 100) + "%";
+      if(k === "duplicate") fi.style.background = "var(--code)";
+      tr.appendChild(fi);
+      var n = document.createElement("span"); n.className = "n"; n.textContent = v;
+      row.appendChild(l); row.appendChild(tr); row.appendChild(n);
+      box.appendChild(row);
+    });
+    $("vaultTotal").textContent = S.notes + " notes";
+  }
+
+  function renderLog(){
+    var ul = $("log");
+    ul.textContent = "";
+    S.log.slice(0, 18).forEach(function(e){
+      var li = document.createElement("li");
+      var a = document.createElement("span"); a.textContent = "#" + e.n;
+      var b = document.createElement("span"); b.className = "fork"; b.textContent = e.fork;
+      var c = document.createElement("span"); c.textContent = e.verdict + " (" + e.c.toFixed(2) + ")";
+      var d = document.createElement("span");
+      d.textContent = (e.esc ? "▲" : "") + (e.ok ? "" : " ✕");
+      d.className = e.ok ? "esc" : "wrong";
+      li.appendChild(a); li.appendChild(b); li.appendChild(c); li.appendChild(d);
+      ul.appendChild(li);
+    });
+  }
+
+  function render(){
+    var t = totals();
+    $("sScreened").textContent = S.screened;
+    $("sNotes").textContent = S.notes;
+    $("sEsc").textContent = t.esc;
+    $("sBrief").textContent = S.brief;
+    $("clock").textContent = "item " + S.items;
+    $("escRate").textContent = (t.calls ? pct(t.esc / t.calls) : "0%") + " escalated";
+    renderFlow(); renderForks(); renderSpend(t); renderVault(); renderLog();
+    S.flash = "";
+  }
+
+  // ---------- threshold sweep (fixed synthetic sample, independent of the run) ----------
+  var sweep = [];
+  function computeSweep(){
+    var r = mulberry32(7), sample = [], i, t;
+    for(i = 0; i < MODEL.sweepSamples; i++){
+      var c = drawConf(r);
+      sample.push({ c:c, cheap:r() < cheapP(c), front:r() < frontierP(c) });
+    }
+    sweep = [];
+    for(t = 50; t <= 100; t++){
+      var tau = t / 100, esc = 0, right = 0;
+      sample.forEach(function(s){
+        if(s.c < tau){ esc++; if(s.front) right++; } else if(s.cheap) right++;
+      });
+      var e = esc / sample.length;
+      var ratio = cfg.pFrontier > 0 ? (cfg.pCheap / cfg.pFrontier + e) : 0;
+      sweep.push({ tau:tau, esc:e, acc:right / sample.length, cost:ratio });
+    }
+  }
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var G = { w:420, h:200, l:44, r:10, t:10, b:28 };
+  function el(name, attrs, parent){
+    var e = document.createElementNS(SVGNS, name), k;
+    for(k in attrs) e.setAttribute(k, attrs[k]);
+    if(parent) parent.appendChild(e);
+    return e;
+  }
+  function xOf(tau){ return G.l + (tau - 0.5) / 0.5 * (G.w - G.l - G.r); }
+
+  function drawChart(svgId, tipId, field, yMin, yMax, fmt){
+    var svg = $(svgId), tip = $(tipId);
+    svg.textContent = "";
+    function yOf(v){ return G.t + (1 - (v - yMin) / (yMax - yMin)) * (G.h - G.t - G.b); }
+    var i, v;
+    for(i = 0; i <= 4; i++){
+      v = yMin + (yMax - yMin) * i / 4;
+      el("line", { x1:G.l, x2:G.w - G.r, y1:yOf(v), y2:yOf(v), stroke:"var(--grid)", "stroke-width":1 }, svg);
+      var tx = el("text", { x:G.l - 6, y:yOf(v) + 3, "text-anchor":"end" }, svg); tx.textContent = fmt(v);
+    }
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1].forEach(function(tau){
+      var tx = el("text", { x:xOf(tau), y:G.h - 10, "text-anchor":"middle" }, svg); tx.textContent = tau.toFixed(1);
+    });
+    var tl = el("text", { x:G.w - G.r, y:G.h, "text-anchor":"end" }, svg); tl.textContent = "τ";
+    var d = sweep.map(function(p, j){ return (j ? "L" : "M") + xOf(p.tau).toFixed(1) + " " + yOf(Math.max(yMin, Math.min(yMax, p[field]))).toFixed(1); }).join(" ");
+    el("path", { d:d, fill:"none", stroke:"var(--series)", "stroke-width":2, "stroke-linejoin":"round", "stroke-linecap":"round" }, svg);
+    el("line", { x1:xOf(cfg.tau), x2:xOf(cfg.tau), y1:G.t, y2:G.h - G.b, stroke:"var(--text-muted)", "stroke-dasharray":"3 3", "stroke-width":1 }, svg);
+    var cur = sweep[Math.round((cfg.tau - 0.5) * 100)];
+    if(cur){
+      el("circle", { cx:xOf(cur.tau), cy:yOf(Math.max(yMin, Math.min(yMax, cur[field]))), r:4.5, fill:"var(--series)", stroke:"var(--surface)", "stroke-width":2 }, svg);
+    }
+    var hair = el("line", { y1:G.t, y2:G.h - G.b, stroke:"var(--text-dim)", "stroke-width":1, visibility:"hidden" }, svg);
+    var dot = el("circle", { r:4, fill:"var(--series)", stroke:"var(--surface)", "stroke-width":2, visibility:"hidden" }, svg);
+    var hit = el("rect", { x:G.l, y:G.t, width:G.w - G.l - G.r, height:G.h - G.t - G.b, fill:"transparent" }, svg);
+
+    function show(evt){
+      var box = svg.getBoundingClientRect();
+      var sx = (evt.clientX - box.left) / box.width * G.w;
+      var idx = Math.round(((sx - G.l) / (G.w - G.l - G.r)) * 50);
+      idx = Math.max(0, Math.min(sweep.length - 1, idx));
+      var p = sweep[idx], x = xOf(p.tau), y = yOf(Math.max(yMin, Math.min(yMax, p[field])));
+      hair.setAttribute("x1", x); hair.setAttribute("x2", x); hair.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible");
+      tip.textContent = "";
+      [["τ ", p.tau.toFixed(2)], ["accuracy ", pct(p.acc)], ["cost ", pct(p.cost)], ["escalated ", pct(p.esc)]].forEach(function(row, j){
+        if(j) tip.appendChild(document.createElement("br"));
+        tip.appendChild(document.createTextNode(row[0]));
+        var b = document.createElement("b"); b.textContent = row[1]; tip.appendChild(b);
+      });
+      tip.style.display = "block";
+      var px = x / G.w * box.width, py = y / G.h * box.height + svg.offsetTop;
+      var left = px + 12;
+      if(left + tip.offsetWidth > box.width) left = px - tip.offsetWidth - 12;
+      tip.style.left = left + "px";
+      tip.style.top = Math.max(0, py - tip.offsetHeight / 2) + "px";
+    }
+    function hide(){ hair.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.style.display = "none"; }
+    hit.addEventListener("pointermove", show);
+    hit.addEventListener("pointerdown", show);
+    hit.addEventListener("pointerleave", hide);
+  }
+
+  function tickPct(v){
+    var r = v * 100;
+    return (Math.abs(r - Math.round(r)) < 1e-6 ? String(Math.round(r)) : r.toFixed(1)) + "%";
+  }
+
+  function renderSweep(){
+    var lo = 1;
+    sweep.forEach(function(p){ lo = Math.min(lo, p.acc); });
+    var accMin = Math.max(0, Math.floor((lo - 0.01) * 20) / 20);
+    drawChart("chartAcc", "tipAcc", "acc", accMin, 1, tickPct);
+    drawChart("chartCost", "tipCost", "cost", 0, 1, tickPct);
+    var tb = $("sweepBody");
+    tb.textContent = "";
+    sweep.forEach(function(p, i){
+      if(i % 5 !== 0) return;
+      var tr = document.createElement("tr");
+      [p.tau.toFixed(2), pct(p.esc), pct(p.acc), pct(p.cost)].forEach(function(v){
+        var td = document.createElement("td"); td.className = "n"; td.textContent = v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    var cur = sweep[Math.round((cfg.tau - 0.5) * 100)];
+    $("sweepNote").textContent = cur ? "at τ " + cfg.tau.toFixed(2) + ": " + pct(cur.acc) + " acc · " + pct(cur.cost) + " cost" : "";
+  }
+
+  // ---------- controls ----------
+  var timer = null;
+  function setRunning(on){
+    if(timer){ clearInterval(timer); timer = null; }
+    if(on){
+      timer = setInterval(function(){ stepItem(); render(); }, 1000 / cfg.speed);
+    }
+    $("runBtn").textContent = on ? "Pause" : "Run";
+    $("runBtn").setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  function syncInputs(){
+    $("tau").value = cfg.tau; $("tauOut").textContent = Number(cfg.tau).toFixed(2);
+    $("judgeType").value = cfg.judgeType;
+    $("pCheap").value = cfg.pCheap; $("pFrontier").value = cfg.pFrontier;
+    $("pRead").value = cfg.pRead; $("pWrite").value = cfg.pWrite;
+    $("fAcc").value = cfg.fAcc; $("fAccOut").textContent = Number(cfg.fAcc).toFixed(3);
+    $("speed").value = String(cfg.speed);
+  }
+
+  function num(id, fallback){ var v = parseFloat($(id).value); return isFinite(v) && v >= 0 ? v : fallback; }
+
+  $("runBtn").addEventListener("click", function(){ setRunning(!timer); });
+  $("stepBtn").addEventListener("click", function(){ stepItem(); render(); });
+  $("dayBtn").addEventListener("click", function(){ for(var i = 0; i < 200; i++) stepItem(); render(); });
+  $("resetBtn").addEventListener("click", function(){ setRunning(false); fresh(); render(); });
+  $("speed").addEventListener("change", function(){ cfg.speed = parseInt($("speed").value, 10) || 8; save(); if(timer) setRunning(true); });
+  $("tau").addEventListener("input", function(){
+    cfg.tau = parseFloat($("tau").value); $("tauOut").textContent = cfg.tau.toFixed(2); save(); renderSweep();
+  });
+  $("judgeType").addEventListener("change", function(){ cfg.judgeType = $("judgeType").value; save(); computeSweep(); renderSweep(); });
+  $("fAcc").addEventListener("input", function(){
+    cfg.fAcc = parseFloat($("fAcc").value); $("fAccOut").textContent = cfg.fAcc.toFixed(3); save(); computeSweep(); renderSweep();
+  });
+  ["pCheap","pFrontier","pRead","pWrite"].forEach(function(id){
+    $(id).addEventListener("change", function(){ cfg[id] = num(id, DEFAULTS[id]); $(id).value = cfg[id]; save(); computeSweep(); renderSweep(); render(); });
+  });
+
+  syncInputs();
+  fresh();
+  computeSweep();
+  renderSweep();
+  render();
+})();
+</script>
