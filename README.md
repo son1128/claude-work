@@ -9,6 +9,7 @@ A collection of self-contained single-file HTML "mini-apps." Each app is one sta
 | [`mini-apps/focus-ledger`](mini-apps/focus-ledger/index.html) | Pomodoro timer + task ledger |
 | [`mini-apps/mirror-bloom`](mini-apps/mirror-bloom/index.html) | Kaleidoscope drawing toy (canvas) |
 | [`mini-apps/nova-fold`](mini-apps/nova-fold/index.html) | 2048-style tile-merging game |
+| [`mini-apps/dual-shorts`](mini-apps/dual-shorts/index.html) | Shopping-shorts dual-income planner: goal back-calculator, product margins, 15s script generator, results log + dashboard (Korean UI; see [`reports/dual-shorts-playbook.md`](reports/dual-shorts-playbook.md)) |
 
 ## Running an app
 

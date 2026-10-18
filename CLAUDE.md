@@ -10,6 +10,7 @@ Current apps:
 - `mini-apps/focus-ledger/` — Pomodoro timer + task ledger
 - `mini-apps/mirror-bloom/` — kaleidoscope drawing toy (canvas)
 - `mini-apps/nova-fold/` — 2048-style tile-merging game
+- `mini-apps/dual-shorts/` — shopping-shorts dual-income planner (Korean UI; light/dark split like focus-ledger)
 
 `firestore-rules/` is the one exception to the no-tooling rule: a small npm project with Firestore security rules for a sample CRM and Vitest tests run against the Firestore emulator (`npm install && npm test` inside that folder; needs Java for the emulator). It is unrelated to the mini-apps and their conventions below don't apply to it.
 
