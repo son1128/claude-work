@@ -1,0 +1,744 @@
+<!doctype html>
+<title>Dual Shorts</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#f2f4f7;
+    --surface:#ffffff;
+    --surface-2:#eaedf2;
+    --border:#d7dce4;
+    --text:#18202b;
+    --text-dim:#5f6b7a;
+    --accent:#2563eb;
+    --accent-ink:#ffffff;
+    --accent-soft:#dbe6fd;
+    --aff:#d97706;
+    --aff-soft:#fdf0d9;
+    --good:#15803d;
+    --good-soft:#dcf1e3;
+    --bad:#b91c1c;
+    --bad-soft:#fbe0e0;
+    --shadow: 0 1px 2px rgba(20,30,50,.05), 0 8px 24px rgba(20,30,50,.07);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f141c;
+      --surface:#161d28;
+      --surface-2:#1d2633;
+      --border:#2b3646;
+      --text:#e8edf4;
+      --text-dim:#93a0b2;
+      --accent:#5b8cff;
+      --accent-ink:#0b1220;
+      --accent-soft:#1c2a47;
+      --aff:#f5a524;
+      --aff-soft:#3a2a10;
+      --good:#4ade80;
+      --good-soft:#15301f;
+      --bad:#f87171;
+      --bad-soft:#3a1717;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f141c;
+    --surface:#161d28;
+    --surface-2:#1d2633;
+    --border:#2b3646;
+    --text:#e8edf4;
+    --text-dim:#93a0b2;
+    --accent:#5b8cff;
+    --accent-ink:#0b1220;
+    --accent-soft:#1c2a47;
+    --aff:#f5a524;
+    --aff-soft:#3a2a10;
+    --good:#4ade80;
+    --good-soft:#15301f;
+    --bad:#f87171;
+    --bad-soft:#3a1717;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Noto Sans KR", ui-sans-serif, system-ui, sans-serif; font-size:15px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:1080px; margin:0 auto; padding:2rem 1rem 4rem; display:flex; flex-direction:column; gap:1.25rem; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  h1{ font-family:"Black Han Sans", sans-serif; font-weight:400; font-size:1.9rem; margin:0; letter-spacing:.01em; }
+  h1 span{ color:var(--accent); }
+  .tagline{ color:var(--text-dim); margin:.2rem 0 0; font-size:.9rem; }
+  .io{ display:flex; gap:.4rem; }
+
+  .tabs{ display:flex; gap:.3rem; flex-wrap:wrap; background:var(--surface-2); padding:.3rem; border-radius:12px; }
+  .tab{
+    border:none; background:transparent; color:var(--text-dim); font:inherit; font-weight:500; font-size:.9rem;
+    padding:.5rem .9rem; border-radius:9px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .tab[aria-pressed="true"]{ background:var(--surface); color:var(--text); box-shadow:var(--shadow); }
+  .view{ display:none; flex-direction:column; gap:1rem; }
+  .view.on{ display:flex; }
+
+  .panel{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.2rem; box-shadow:var(--shadow); }
+  .panel h2{ margin:0 0 .75rem; font-size:1.05rem; }
+  .panel h3{ margin:1rem 0 .5rem; font-size:.92rem; color:var(--text-dim); font-weight:500; }
+  .grid{ display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); }
+  .hint{ color:var(--text-dim); font-size:.84rem; line-height:1.55; margin:.4rem 0 0; }
+
+  label.f{ display:flex; flex-direction:column; gap:.25rem; font-size:.82rem; color:var(--text-dim); }
+  .fields{ display:grid; gap:.6rem; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
+  input, select, textarea{
+    font:inherit; font-size:.92rem; color:var(--text); background:var(--surface-2);
+    border:1px solid var(--border); border-radius:8px; padding:.45rem .6rem; width:100%; min-width:0;
+  }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--accent); outline-offset:0; }
+  input[type="number"]{ font-family:"IBM Plex Mono", monospace; }
+  textarea{ resize:vertical; min-height:7rem; line-height:1.55; }
+
+  .btn{
+    font:inherit; font-size:.88rem; font-weight:500; border:1px solid var(--border); background:var(--surface);
+    color:var(--text); padding:.45rem .85rem; border-radius:8px; cursor:pointer; transition:background .15s;
+  }
+  .btn:hover{ background:var(--surface-2); }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .btn.small{ font-size:.78rem; padding:.25rem .55rem; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-top:.75rem; }
+
+  .stats{ display:grid; gap:.6rem; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); }
+  .stat{ background:var(--surface-2); border-radius:10px; padding:.7rem .8rem; }
+  .stat .k{ font-size:.76rem; color:var(--text-dim); }
+  .stat .v{ font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:1.08rem; margin-top:.15rem; word-break:break-all; }
+  .stat.aff{ background:var(--aff-soft); } .stat.aff .v{ color:var(--aff); }
+  .stat.own{ background:var(--accent-soft); } .stat.own .v{ color:var(--accent); }
+
+  .note{ border-radius:10px; padding:.7rem .85rem; font-size:.86rem; line-height:1.55; margin-top:.75rem; }
+  .note.warn{ background:var(--bad-soft); color:var(--bad); }
+  .note.ok{ background:var(--good-soft); color:var(--good); }
+
+  .table-wrap{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:.85rem; }
+  th, td{ text-align:left; padding:.45rem .5rem; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th{ color:var(--text-dim); font-weight:500; font-size:.78rem; }
+  td.n{ font-family:"IBM Plex Mono", monospace; text-align:right; }
+  th.n{ text-align:right; }
+  .pill{ display:inline-block; font-size:.72rem; padding:.1rem .45rem; border-radius:999px; background:var(--surface-2); }
+  .pill.aff{ background:var(--aff-soft); color:var(--aff); }
+  .pill.own{ background:var(--accent-soft); color:var(--accent); }
+  .pill.bad{ background:var(--bad-soft); color:var(--bad); }
+  .pill.good{ background:var(--good-soft); color:var(--good); }
+  .del{ border:none; background:transparent; color:var(--text-dim); cursor:pointer; font-size:1rem; }
+  .del:hover{ color:var(--bad); }
+  .empty{ color:var(--text-dim); font-size:.86rem; padding:.6rem 0; }
+
+  .bar{ height:12px; background:var(--surface-2); border-radius:999px; overflow:hidden; display:flex; }
+  .bar i{ display:block; height:100%; transition:width .3s; }
+  .bar .a{ background:var(--aff); } .bar .o{ background:var(--accent); }
+
+  .steps{ counter-reset:s; list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.6rem; }
+  .steps li{ counter-increment:s; display:flex; gap:.7rem; line-height:1.55; font-size:.9rem; }
+  .steps li::before{
+    content:counter(s); flex:none; width:1.6rem; height:1.6rem; border-radius:50%; display:grid; place-items:center;
+    background:var(--accent-soft); color:var(--accent); font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:.8rem;
+  }
+  .checks{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.35rem; }
+  .checks label{ display:flex; gap:.55rem; align-items:flex-start; font-size:.9rem; cursor:pointer; line-height:1.45; }
+  .checks input{ width:auto; margin-top:.2rem; accent-color:var(--accent); }
+  .checks .done{ color:var(--text-dim); text-decoration:line-through; }
+  .out-head{ display:flex; justify-content:space-between; align-items:center; margin-top:.9rem; }
+  .out-head b{ font-size:.85rem; }
+
+  footer{ text-align:center; color:var(--text-dim); font-size:.78rem; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Dual <span>Shorts</span></h1>
+      <p class="tagline">15초 쇼핑 쇼츠 하나로 제휴 수수료와 직접 판매 마진을 함께 버는 이중 수익 시스템</p>
+    </div>
+    <div class="io">
+      <button class="btn small" id="exportBtn" type="button">백업 저장</button>
+      <button class="btn small" id="importBtn" type="button">백업 불러오기</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="화면 선택">
+    <button class="tab" type="button" data-view="formula" aria-pressed="true">① 공식</button>
+    <button class="tab" type="button" data-view="goal" aria-pressed="false">② 목표 역산</button>
+    <button class="tab" type="button" data-view="products" aria-pressed="false">③ 상품·마진</button>
+    <button class="tab" type="button" data-view="script" aria-pressed="false">④ 15초 대본</button>
+    <button class="tab" type="button" data-view="log" aria-pressed="false">⑤ 성과 기록</button>
+    <button class="tab" type="button" data-view="dash" aria-pressed="false">⑥ 대시보드</button>
+  </nav>
+
+  <!-- ① 공식 -->
+  <section class="view on" id="view-formula">
+    <div class="grid">
+      <div class="panel">
+        <h2>이중 수익 구조</h2>
+        <ol class="steps">
+          <li><span><b>1단계 · 제휴 수수료</b> — 15초 영상에 쿠팡 파트너스 링크를 붙여 판매 금액의 약 3%를 받습니다. 구독자 0명이어도 첫 영상부터 가능합니다.</span></li>
+          <li><span><b>2단계 · 직접 판매 마진</b> — 반응이 검증된 상품을 위탁·사입·자체 브랜드로 직접 팔아 마진 35~65%를 가져옵니다. 같은 영상을 두 번 쓰는 셈입니다.</span></li>
+          <li><span><b>확장 · 3채널 배포</b> — 영상 원본 1개를 유튜브 쇼츠·인스타 릴스·틱톡에 동시에 올려 노출을 3배로 늘립니다.</span></li>
+          <li><span><b>루틴 · 하루 2시간</b> — 촬영 30분, 편집 60분, 업로드·기록 30분. 매일 같은 시간에 2개씩 올립니다.</span></li>
+        </ol>
+        <p class="hint">출처: 분석한 무료특강 랜딩 페이지의 "해파스 이중수익 구조". 원본이 주장한 월 2,100만 원은 쿠팡 수수료 1,000만 원 + 물건 판매 1,100만 원입니다. ② 목표 역산에서 이 숫자에 필요한 조회수를 직접 계산해 보세요.</p>
+      </div>
+      <div class="panel">
+        <h2>원본과 다르게 바꾼 3가지</h2>
+        <ol class="steps">
+          <li><span><b>퍼온 영상 금지</b> — 해외 숏폼을 허락 없이 가져오면 저작권 침해이고, 재사용 콘텐츠로 분류되면 수익이 막힙니다. 직접 촬영·허락받은 영상·무료 소재만 씁니다. ④ 대본 화면은 출처가 불분명하면 대본을 만들지 않습니다.</span></li>
+          <li><span><b>광고 표시 자동화</b> — 제휴 링크와 직접 판매 영상에는 경제적 이해관계를 표시해야 합니다. 대본과 설명란에 표시 문구가 자동으로 들어갑니다.</span></li>
+          <li><span><b>숫자로 판단</b> — 수익 인증 캡처 대신 내 조회수·클릭·주문을 기록하고, 순마진 20% 미만 상품과 성과 낮은 채널을 걸러냅니다.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>오늘의 루틴</h2>
+      <ul class="checks" id="routineList"></ul>
+      <p class="hint" id="routineHint"></p>
+    </div>
+  </section>
+
+  <!-- ② 목표 역산 -->
+  <section class="view" id="view-goal">
+    <div class="grid">
+      <div class="panel">
+        <h2>제휴 수수료 (1단계)</h2>
+        <div class="fields">
+          <label class="f">월 목표 수수료(원)<input type="number" min="0" step="100000" data-goal="aff"></label>
+          <label class="f">수수료율(%)<input type="number" min="0.1" step="0.1" data-goal="comm"></label>
+          <label class="f">평균 주문 금액(원)<input type="number" min="1000" step="1000" data-goal="affAov"></label>
+          <label class="f">클릭→구매 전환율(%)<input type="number" min="0.1" step="0.1" data-goal="affConv"></label>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>직접 판매 (2단계)</h2>
+        <div class="fields">
+          <label class="f">월 목표 순이익(원)<input type="number" min="0" step="100000" data-goal="own"></label>
+          <label class="f">순마진율(%)<input type="number" min="1" step="1" data-goal="ownMargin"></label>
+          <label class="f">평균 주문 금액(원)<input type="number" min="1000" step="1000" data-goal="ownAov"></label>
+          <label class="f">클릭→구매 전환율(%)<input type="number" min="0.1" step="0.1" data-goal="ownConv"></label>
+        </div>
+        <div class="row"><button class="btn small" type="button" id="useMarginBtn">③의 판매 중 상품 평균 마진 적용</button></div>
+      </div>
+      <div class="panel">
+        <h2>콘텐츠</h2>
+        <div class="fields">
+          <label class="f">조회→링크 클릭률(%)<input type="number" min="0.01" step="0.1" data-goal="ctr"></label>
+          <label class="f">월 제작 영상 수<input type="number" min="1" step="1" data-goal="videos"></label>
+          <label class="f">배포 채널 수<input type="number" min="1" max="5" step="1" data-goal="channels"></label>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>목표를 달성하려면</h2>
+      <div class="stats" id="goalStats"></div>
+      <div id="goalNote"></div>
+      <p class="hint">계산 순서: 목표 수익 ÷ 수수료율(마진율) = 필요한 매출 → ÷ 주문 금액 = 주문 수 → ÷ 전환율 = 클릭 수 → ÷ 클릭률 = 조회수 → ÷ (영상 수 × 채널 수) = 업로드 1건당 조회수.</p>
+    </div>
+  </section>
+
+  <!-- ③ 상품·마진 -->
+  <section class="view" id="view-products">
+    <div class="panel">
+      <h2>상품 추가</h2>
+      <form id="productForm">
+        <div class="fields">
+          <label class="f">상품명<input type="text" name="name" required maxlength="60" placeholder="예: 실리콘 싱크대 거름망"></label>
+          <label class="f">카테고리<input type="text" name="cat" maxlength="20" placeholder="예: 주방"></label>
+          <label class="f">판매 방식
+            <select name="type">
+              <option value="aff">제휴 링크 (쿠팡 파트너스)</option>
+              <option value="drop">위탁판매</option>
+              <option value="stock">소량 사입</option>
+              <option value="brand">자체 브랜드</option>
+            </select>
+          </label>
+          <label class="f">판매가(원)<input type="number" name="price" min="0" step="100" required></label>
+          <label class="f">원가(원)<input type="number" name="cost" min="0" step="100" value="0"></label>
+          <label class="f">플랫폼 수수료(%)<input type="number" name="fee" min="0" step="0.1" value="6"></label>
+          <label class="f">배송비 부담(원)<input type="number" name="ship" min="0" step="100" value="0"></label>
+          <label class="f">주문당 광고비(원)<input type="number" name="ad" min="0" step="100" value="0"></label>
+        </div>
+        <div class="row"><button class="btn primary" type="submit">상품 추가</button></div>
+        <p class="hint">제휴 링크 상품은 원가·수수료 대신 ② 목표 역산의 수수료율로 수익을 계산합니다. 스마트스토어 수수료는 결제 방식에 따라 대략 4~6%, 쿠팡 판매 수수료는 카테고리별로 대략 4~11%입니다. 실제 요율은 판매자 센터에서 확인하세요.</p>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>상품 목록</h2>
+      <div class="table-wrap"><table id="productTable"></table></div>
+      <p class="empty" id="productEmpty">아직 상품이 없습니다. 1단계에서는 제휴 링크 상품으로 시작하세요.</p>
+    </div>
+  </section>
+
+  <!-- ④ 15초 대본 -->
+  <section class="view" id="view-script">
+    <div class="panel">
+      <h2>15초 대본 만들기</h2>
+      <div class="fields">
+        <label class="f">상품<select id="sProduct"></select></label>
+        <label class="f">영상 출처
+          <select id="sSource">
+            <option value="">선택하세요</option>
+            <option value="own">직접 촬영</option>
+            <option value="licensed">제조사·판매사 허락 받음</option>
+            <option value="free">무료 사용 허용 소재 + 내 해설</option>
+            <option value="unknown">해외 영상 퍼오기 / 출처 불명</option>
+          </select>
+        </label>
+        <label class="f">훅 유형
+          <select id="sHook">
+            <option value="pain">문제 제기</option>
+            <option value="number">숫자 강조</option>
+            <option value="before">비포 → 애프터</option>
+          </select>
+        </label>
+      </div>
+      <div class="fields" style="margin-top:.6rem">
+        <label class="f">불편함 (문제)<input type="text" id="sPain" maxlength="60" placeholder="예: 싱크대 음식물 냄새"></label>
+        <label class="f">효과 (해결)<input type="text" id="sBenefit" maxlength="60" placeholder="예: 3초 만에 버리고 냄새 끝"></label>
+        <label class="f">혜택·가격<input type="text" id="sOffer" maxlength="40" placeholder="예: 지금 만 원대"></label>
+      </div>
+      <div class="row"><button class="btn primary" type="button" id="genBtn">대본 생성</button></div>
+      <div id="sNote"></div>
+      <div id="scriptOut"></div>
+    </div>
+  </section>
+
+  <!-- ⑤ 성과 기록 -->
+  <section class="view" id="view-log">
+    <div class="panel">
+      <h2>업로드 성과 기록</h2>
+      <form id="logForm">
+        <div class="fields">
+          <label class="f">날짜<input type="date" name="date" required></label>
+          <label class="f">상품<select name="pid" id="logProduct" required></select></label>
+          <label class="f">채널
+            <select name="ch">
+              <option value="yt">유튜브 쇼츠</option>
+              <option value="ig">인스타 릴스</option>
+              <option value="tt">틱톡</option>
+            </select>
+          </label>
+          <label class="f">조회수<input type="number" name="views" min="0" step="1" value="0"></label>
+          <label class="f">링크 클릭<input type="number" name="clicks" min="0" step="1" value="0"></label>
+          <label class="f">주문 수<input type="number" name="orders" min="0" step="1" value="0"></label>
+        </div>
+        <div class="row"><button class="btn primary" type="submit">기록 추가</button></div>
+        <p class="hint">수익은 상품 정보로 자동 계산합니다. 제휴: 주문 × 판매가 × 수수료율 / 직접 판매: 주문 × 상품 순이익.</p>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>기록 목록</h2>
+      <div class="table-wrap"><table id="logTable"></table></div>
+      <p class="empty" id="logEmpty">아직 기록이 없습니다.</p>
+    </div>
+  </section>
+
+  <!-- ⑥ 대시보드 -->
+  <section class="view" id="view-dash">
+    <div class="panel">
+      <div class="row" style="margin-top:0; justify-content:space-between">
+        <h2 style="margin:0">월간 성과</h2>
+        <label class="f" style="flex-direction:row; align-items:center; gap:.4rem">월<input type="month" id="dashMonth" style="width:auto"></label>
+      </div>
+      <div class="stats" id="dashStats" style="margin-top:.8rem"></div>
+      <h3>목표 달성률</h3>
+      <div class="bar" id="dashBar"><i class="a"></i><i class="o"></i></div>
+      <p class="hint" id="dashBarHint"></p>
+    </div>
+    <div class="grid">
+      <div class="panel">
+        <h2>채널별</h2>
+        <div class="table-wrap"><table id="chTable"></table></div>
+      </div>
+      <div class="panel">
+        <h2>상품별</h2>
+        <div class="table-wrap"><table id="topTable"></table></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>다음 행동</h2>
+      <ul class="checks" id="actions"></ul>
+    </div>
+  </section>
+
+  <footer>모든 데이터는 이 브라우저에만 저장됩니다. 기기를 바꿀 때는 백업 저장을 쓰세요.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "ds_state";
+  var DEFAULT_GOAL = { aff:10000000, comm:3, affAov:30000, affConv:10, own:11000000, ownMargin:40, ownAov:25000, ownConv:3, ctr:1, videos:60, channels:3 };
+  var TYPE_LABEL = { aff:"제휴", drop:"위탁", stock:"사입", brand:"자체" };
+  var CH_LABEL = { yt:"유튜브", ig:"인스타", tt:"틱톡" };
+  var ROUTINE = [
+    "상품 1개 고르기 (③에서 반응 좋은 카테고리 우선)",
+    "촬영 30분 — 직접 찍거나 허락받은 소재 확보",
+    "편집 60분 — ④ 대본대로 15초 영상 2개",
+    "업로드 — 유튜브·인스타·틱톡, 설명란에 광고 표시 문구 확인",
+    "어제 올린 영상의 조회·클릭·주문을 ⑤에 기록"
+  ];
+  var DISCLOSE_AFF = "이 게시물은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.";
+  var DISCLOSE_OWN = "[광고] 이 영상은 제가 직접 판매하는 상품을 소개합니다.";
+
+  var state = load(KEY, null) || { goal:{}, products:[], logs:[], routine:{ day:"", done:[] } };
+  state.goal = merge(DEFAULT_GOAL, state.goal || {});
+  state.products = state.products || [];
+  state.logs = state.logs || [];
+  state.routine = state.routine || { day:"", done:[] };
+
+  function load(key, fallback){ try{ var v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; } }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  function merge(a, b){ var o = {}, k; for(k in a){ o[k] = a[k]; } for(k in b){ if(typeof b[k] === "number" && isFinite(b[k])) o[k] = b[k]; } return o; }
+  function id(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function $(s){ return document.querySelector(s); }
+  function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+  function num(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function won(n){ return Math.round(n).toLocaleString("ko-KR") + "원"; }
+  function cnt(n){ return Math.ceil(n).toLocaleString("ko-KR"); }
+  function pct(n){ return (Math.round(n * 10) / 10).toLocaleString("ko-KR") + "%"; }
+  function todayKey(){ var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function findProduct(pid){ for(var i=0;i<state.products.length;i++){ if(state.products[i].id === pid) return state.products[i]; } return null; }
+
+  /* ---------- 상품 경제성 ---------- */
+  function unitProfit(p){
+    if(p.type === "aff") return p.price * state.goal.comm / 100;
+    return p.price - p.cost - p.price * p.fee / 100 - p.ship - p.ad;
+  }
+  function marginRate(p){ return p.price > 0 ? unitProfit(p) / p.price * 100 : 0; }
+  function logProfit(l){ var p = findProduct(l.pid); return p ? unitProfit(p) * l.orders : 0; }
+  function isAff(l){ var p = findProduct(l.pid); return !p || p.type === "aff"; }
+
+  /* ---------- 탭 ---------- */
+  var tabs = document.querySelectorAll(".tab");
+  Array.prototype.forEach.call(tabs, function(t){
+    t.addEventListener("click", function(){ showView(t.dataset.view); });
+  });
+  function showView(name){
+    Array.prototype.forEach.call(tabs, function(t){ t.setAttribute("aria-pressed", t.dataset.view === name ? "true" : "false"); });
+    Array.prototype.forEach.call(document.querySelectorAll(".view"), function(v){ v.classList.toggle("on", v.id === "view-" + name); });
+    if(name === "dash") renderDash();
+  }
+
+  /* ---------- ① 루틴 ---------- */
+  function renderRoutine(){
+    if(state.routine.day !== todayKey()){ state.routine = { day: todayKey(), done: [] }; save(); }
+    var list = $("#routineList"); list.textContent = "";
+    ROUTINE.forEach(function(text, i){
+      var li = el("li"), lab = el("label"), box = el("input"), span = el("span", null, text);
+      box.type = "checkbox"; box.checked = state.routine.done.indexOf(i) >= 0;
+      if(box.checked) span.className = "done";
+      box.addEventListener("change", function(){
+        var at = state.routine.done.indexOf(i);
+        if(box.checked && at < 0) state.routine.done.push(i);
+        if(!box.checked && at >= 0) state.routine.done.splice(at, 1);
+        save(); renderRoutine();
+      });
+      lab.appendChild(box); lab.appendChild(span); li.appendChild(lab); list.appendChild(li);
+    });
+    $("#routineHint").textContent = state.routine.done.length + " / " + ROUTINE.length + " 완료 · 날짜가 바뀌면 자동으로 초기화됩니다.";
+  }
+
+  /* ---------- ② 목표 역산 ---------- */
+  var goalInputs = document.querySelectorAll("[data-goal]");
+  Array.prototype.forEach.call(goalInputs, function(inp){
+    inp.value = state.goal[inp.dataset.goal];
+    inp.addEventListener("input", function(){
+      state.goal[inp.dataset.goal] = num(inp.value); save(); renderGoal(); renderProducts();
+    });
+  });
+  function goalMath(){
+    var g = state.goal;
+    var affSales = g.comm > 0 ? g.aff / (g.comm / 100) : 0;
+    var affOrders = g.affAov > 0 ? affSales / g.affAov : 0;
+    var affClicks = g.affConv > 0 ? affOrders / (g.affConv / 100) : 0;
+    var ownSales = g.ownMargin > 0 ? g.own / (g.ownMargin / 100) : 0;
+    var ownOrders = g.ownAov > 0 ? ownSales / g.ownAov : 0;
+    var ownClicks = g.ownConv > 0 ? ownOrders / (g.ownConv / 100) : 0;
+    var clicks = affClicks + ownClicks;
+    var views = g.ctr > 0 ? clicks / (g.ctr / 100) : 0;
+    var uploads = Math.max(1, g.videos) * Math.max(1, g.channels);
+    return { affSales:affSales, affOrders:affOrders, affClicks:affClicks, ownSales:ownSales, ownOrders:ownOrders,
+      ownClicks:ownClicks, clicks:clicks, views:views, uploads:uploads, perUpload: views / uploads, total: g.aff + g.own };
+  }
+  function stat(box, k, v, cls){ var s = el("div", "stat" + (cls ? " " + cls : "")); s.appendChild(el("div", "k", k)); s.appendChild(el("div", "v", v)); box.appendChild(s); }
+  function renderGoal(){
+    var m = goalMath(), box = $("#goalStats"); box.textContent = "";
+    stat(box, "월 목표 합계", won(m.total));
+    stat(box, "필요한 제휴 매출", won(m.affSales), "aff");
+    stat(box, "제휴 주문 수", cnt(m.affOrders) + "건", "aff");
+    stat(box, "직접 판매 매출", won(m.ownSales), "own");
+    stat(box, "직접 판매 주문 수", cnt(m.ownOrders) + "건", "own");
+    stat(box, "필요한 링크 클릭", cnt(m.clicks) + "회");
+    stat(box, "필요한 월 조회수", cnt(m.views) + "회");
+    stat(box, "업로드 1건당 조회수", cnt(m.perUpload) + "회");
+    var note = $("#goalNote"); note.textContent = "";
+    var msg, cls;
+    if(m.perUpload > 50000){
+      cls = "warn";
+      msg = "현실 점검: 업로드 1건당 평균 " + cnt(m.perUpload) + "회가 필요합니다. 초보 채널의 쇼츠는 대개 수백~수천 회에서 시작하므로, 목표를 단계별로 낮추거나(예: 월 100만 → 500만 → 2,000만) 마진이 높은 직접 판매 비중을 늘리세요.";
+    } else if(m.perUpload > 10000){
+      cls = "warn";
+      msg = "업로드 1건당 " + cnt(m.perUpload) + "회가 필요합니다. 터지는 영상 몇 개가 평균을 끌어올려야 하는 수준이니, 반응 좋은 상품을 반복 제작하는 데 집중하세요.";
+    } else {
+      cls = "ok";
+      msg = "업로드 1건당 " + cnt(m.perUpload) + "회면 됩니다. 꾸준히 올리면 도달 가능한 범위입니다.";
+    }
+    note.appendChild(el("div", "note " + cls, msg));
+  }
+  $("#useMarginBtn").addEventListener("click", function(){
+    var own = state.products.filter(function(p){ return p.type !== "aff" && p.status !== "stop"; });
+    if(!own.length){ alert("③에 직접 판매 상품을 먼저 추가하세요."); return; }
+    var sum = 0; own.forEach(function(p){ sum += marginRate(p); });
+    state.goal.ownMargin = Math.max(1, Math.round(sum / own.length));
+    Array.prototype.forEach.call(goalInputs, function(inp){ if(inp.dataset.goal === "ownMargin") inp.value = state.goal.ownMargin; });
+    save(); renderGoal();
+  });
+
+  /* ---------- ③ 상품 ---------- */
+  $("#productForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var f = e.target.elements;
+    state.products.push({ id:id(), name:f.name.value.trim(), cat:f.cat.value.trim(), type:f.type.value,
+      price:num(f.price.value), cost:num(f.cost.value), fee:num(f.fee.value), ship:num(f.ship.value), ad:num(f.ad.value), status:"test" });
+    save(); e.target.reset(); f.fee.value = 6; f.cost.value = 0; f.ship.value = 0; f.ad.value = 0;
+    renderAll();
+  });
+  function renderProducts(){
+    var t = $("#productTable"); t.textContent = "";
+    $("#productEmpty").style.display = state.products.length ? "none" : "block";
+    if(!state.products.length) return;
+    var head = el("tr");
+    ["상품", "방식", "판매가", "건당 수익", "마진", "상태", ""].forEach(function(h, i){ head.appendChild(el("th", i >= 2 && i <= 4 ? "n" : null, h)); });
+    t.appendChild(head);
+    state.products.forEach(function(p){
+      var tr = el("tr"), mr = marginRate(p);
+      var name = el("td", null, p.name + (p.cat ? " · " + p.cat : ""));
+      var type = el("td"); type.appendChild(el("span", "pill " + (p.type === "aff" ? "aff" : "own"), TYPE_LABEL[p.type]));
+      var margin = el("td", "n");
+      margin.appendChild(el("span", "pill " + (p.type === "aff" ? "" : (mr < 20 ? "bad" : "good")), pct(mr)));
+      var st = el("td"), sel = el("select");
+      [["test","테스트"],["sell","판매 중"],["stop","중단"]].forEach(function(o){ var op = el("option", null, o[1]); op.value = o[0]; sel.appendChild(op); });
+      sel.value = p.status; sel.style.width = "auto"; sel.setAttribute("aria-label", p.name + " 상태");
+      sel.addEventListener("change", function(){ p.status = sel.value; save(); renderDash(); });
+      st.appendChild(sel);
+      var d = el("td"), del = el("button", "del", "×"); del.type = "button"; del.setAttribute("aria-label", p.name + " 삭제");
+      del.addEventListener("click", function(){
+        if(!confirm("'" + p.name + "' 상품과 관련 기록을 삭제할까요?")) return;
+        state.products = state.products.filter(function(x){ return x.id !== p.id; });
+        state.logs = state.logs.filter(function(l){ return l.pid !== p.id; });
+        save(); renderAll();
+      });
+      d.appendChild(del);
+      tr.appendChild(name); tr.appendChild(type); tr.appendChild(el("td", "n", won(p.price)));
+      tr.appendChild(el("td", "n", won(unitProfit(p)))); tr.appendChild(margin); tr.appendChild(st); tr.appendChild(d);
+      t.appendChild(tr);
+    });
+  }
+  function fillProductSelect(sel, withEmpty){
+    var keep = sel.value; sel.textContent = "";
+    if(withEmpty){ var e0 = el("option", null, state.products.length ? "선택하세요" : "③에서 상품을 먼저 추가하세요"); e0.value = ""; sel.appendChild(e0); }
+    state.products.forEach(function(p){
+      if(p.status === "stop") return;
+      var o = el("option", null, "[" + TYPE_LABEL[p.type] + "] " + p.name); o.value = p.id; sel.appendChild(o);
+    });
+    sel.value = keep; if(sel.value !== keep) sel.selectedIndex = 0;
+  }
+
+  /* ---------- ④ 대본 ---------- */
+  $("#genBtn").addEventListener("click", function(){
+    var note = $("#sNote"), out = $("#scriptOut"); note.textContent = ""; out.textContent = "";
+    var p = findProduct($("#sProduct").value), src = $("#sSource").value;
+    if(!p){ note.appendChild(el("div", "note warn", "상품을 선택하세요.")); return; }
+    if(!src){ note.appendChild(el("div", "note warn", "영상 출처를 선택하세요. 출처를 기록해 두면 저작권 문의가 왔을 때 증빙이 됩니다.")); return; }
+    if(src === "unknown"){
+      note.appendChild(el("div", "note warn", "대본을 만들지 않습니다. 허락 없이 가져온 영상은 저작권 침해이고, 플랫폼이 재사용 콘텐츠로 판단하면 수익 창출이 정지될 수 있습니다. 직접 촬영하거나 제조사·판매사에 사용 허락을 받으세요."));
+      return;
+    }
+    var pain = $("#sPain").value.trim() || "이런 불편함", benefit = $("#sBenefit").value.trim() || "훨씬 편해집니다", offer = $("#sOffer").value.trim();
+    var hook = { pain: pain + ", 아직도 참고 계세요?", number: "이거 하나로 " + benefit + "?", before: "왼쪽이 전, 오른쪽이 후. " + pain + " 끝." }[$("#sHook").value];
+    var disclose = p.type === "aff" ? DISCLOSE_AFF : DISCLOSE_OWN;
+    var cta = (offer ? offer + ", " : "") + "설명란 링크에서 확인하세요.";
+    var tags = "#" + (p.cat || "살림템").replace(/\s+/g, "") + " #" + p.name.replace(/\s+/g, "") + " #쇼핑 #꿀템";
+    var script = [
+      "[0~2초 · 훅] " + hook,
+      "  화면: " + ($("#sHook").value === "before" ? "전/후 분할 화면" : "불편한 상황을 클로즈업"),
+      "[2~10초 · 시연] " + p.name + " 하나면 " + benefit + ".",
+      "  화면: 사용 장면 2~3컷, 컷당 2~3초, 큰 자막",
+      "[10~15초 · 행동 유도] " + cta,
+      "  화면: 제품 전체 샷 + \"설명란 확인\" 자막",
+      "",
+      "화면 하단 고정 자막: " + (p.type === "aff" ? "쿠팡 파트너스 활동으로 수수료를 받습니다" : "광고 · 직접 판매 상품")
+    ].join("\n");
+    var link = p.type === "aff" ? "[쿠팡 파트너스 링크]" : "[내 스토어 상품 링크]";
+    var yt = p.name + " | " + benefit + " #shorts\n\n" + link + "\n\n" + disclose + "\n\n" + tags;
+    var ig = hook + "\n" + p.name + " 하나면 " + benefit + ".\n\n프로필 링크에서 '" + p.name + "' 확인하세요.\n\n" + disclose + "\n.\n" + tags;
+    var tt = hook + " " + p.name + "로 " + benefit + ". 프로필 링크 확인!\n" + disclose + "\n" + tags + " #fyp";
+    addOut(out, "영상 대본", script);
+    addOut(out, "유튜브 쇼츠 제목·설명란", yt);
+    addOut(out, "인스타 릴스 캡션", ig);
+    addOut(out, "틱톡 캡션", tt);
+  });
+  function addOut(box, title, text){
+    var head = el("div", "out-head"), b = el("b", null, title), copy = el("button", "btn small", "복사");
+    var ta = el("textarea"); ta.value = text; ta.setAttribute("aria-label", title);
+    copy.type = "button";
+    copy.addEventListener("click", function(){
+      ta.select();
+      var done = function(){ copy.textContent = "복사됨"; setTimeout(function(){ copy.textContent = "복사"; }, 1200); };
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(ta.value).then(done, function(){ try{ document.execCommand("copy"); done(); }catch(e){} }); }
+      else { try{ document.execCommand("copy"); done(); }catch(e){} }
+    });
+    head.appendChild(b); head.appendChild(copy); box.appendChild(head); box.appendChild(ta);
+  }
+
+  /* ---------- ⑤ 기록 ---------- */
+  $("#logForm").elements.date.value = todayKey();
+  $("#logForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var f = e.target.elements;
+    if(!f.pid.value){ alert("③에서 상품을 먼저 추가하세요."); return; }
+    state.logs.push({ id:id(), date:f.date.value, pid:f.pid.value, ch:f.ch.value,
+      views:Math.max(0, num(f.views.value)), clicks:Math.max(0, num(f.clicks.value)), orders:Math.max(0, num(f.orders.value)) });
+    save(); f.views.value = 0; f.clicks.value = 0; f.orders.value = 0;
+    renderLogs();
+  });
+  function renderLogs(){
+    var t = $("#logTable"); t.textContent = "";
+    $("#logEmpty").style.display = state.logs.length ? "none" : "block";
+    if(!state.logs.length) return;
+    var head = el("tr");
+    ["날짜", "상품", "채널", "조회", "클릭", "주문", "수익", ""].forEach(function(h, i){ head.appendChild(el("th", i >= 3 && i <= 6 ? "n" : null, h)); });
+    t.appendChild(head);
+    state.logs.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 100).forEach(function(l){
+      var p = findProduct(l.pid), tr = el("tr");
+      tr.appendChild(el("td", null, l.date));
+      tr.appendChild(el("td", null, p ? p.name : "(삭제됨)"));
+      tr.appendChild(el("td", null, CH_LABEL[l.ch]));
+      tr.appendChild(el("td", "n", cnt(l.views))); tr.appendChild(el("td", "n", cnt(l.clicks))); tr.appendChild(el("td", "n", cnt(l.orders)));
+      tr.appendChild(el("td", "n", won(logProfit(l))));
+      var d = el("td"), del = el("button", "del", "×"); del.type = "button"; del.setAttribute("aria-label", "기록 삭제");
+      del.addEventListener("click", function(){ state.logs = state.logs.filter(function(x){ return x.id !== l.id; }); save(); renderLogs(); });
+      d.appendChild(del); tr.appendChild(d); t.appendChild(tr);
+    });
+  }
+
+  /* ---------- ⑥ 대시보드 ---------- */
+  var dashMonth = $("#dashMonth");
+  dashMonth.value = todayKey().slice(0, 7);
+  dashMonth.addEventListener("change", renderDash);
+  function blank(){ return { views:0, clicks:0, orders:0, aff:0, own:0 }; }
+  function add(acc, l){ var v = logProfit(l); acc.views += l.views; acc.clicks += l.clicks; acc.orders += l.orders; if(isAff(l)) acc.aff += v; else acc.own += v; }
+  function renderDash(){
+    var month = dashMonth.value, logs = state.logs.filter(function(l){ return l.date.slice(0, 7) === month; });
+    var tot = blank(), byCh = {}, byP = {};
+    logs.forEach(function(l){
+      add(tot, l);
+      add(byCh[l.ch] = byCh[l.ch] || blank(), l);
+      add(byP[l.pid] = byP[l.pid] || blank(), l);
+    });
+    var box = $("#dashStats"); box.textContent = "";
+    stat(box, "제휴 수수료", won(tot.aff), "aff");
+    stat(box, "직접 판매 순이익", won(tot.own), "own");
+    stat(box, "합계", won(tot.aff + tot.own));
+    stat(box, "조회수", cnt(tot.views));
+    stat(box, "클릭률", tot.views ? pct(tot.clicks / tot.views * 100) : "–");
+    stat(box, "구매 전환율", tot.clicks ? pct(tot.orders / tot.clicks * 100) : "–");
+
+    var g = state.goal, total = g.aff + g.own || 1;
+    var bar = $("#dashBar").children;
+    bar[0].style.width = Math.min(100, tot.aff / total * 100) + "%";
+    bar[1].style.width = Math.min(100 - Math.min(100, tot.aff / total * 100), tot.own / total * 100) + "%";
+    $("#dashBarHint").textContent = "목표 " + won(g.aff + g.own) + " 중 " + pct((tot.aff + tot.own) / total * 100) + " 달성 (주황: 제휴, 파랑: 직접 판매)";
+
+    var ct = $("#chTable"); ct.textContent = "";
+    tableHead(ct, ["채널", "조회", "클릭률", "전환율", "수익"]);
+    ["yt", "ig", "tt"].forEach(function(c){
+      var a = byCh[c] || blank(), tr = el("tr");
+      tr.appendChild(el("td", null, CH_LABEL[c])); tr.appendChild(el("td", "n", cnt(a.views)));
+      tr.appendChild(el("td", "n", a.views ? pct(a.clicks / a.views * 100) : "–"));
+      tr.appendChild(el("td", "n", a.clicks ? pct(a.orders / a.clicks * 100) : "–"));
+      tr.appendChild(el("td", "n", won(a.aff + a.own))); ct.appendChild(tr);
+    });
+
+    var pt = $("#topTable"); pt.textContent = "";
+    var ranked = Object.keys(byP).map(function(k){ return { p: findProduct(k), a: byP[k] }; })
+      .filter(function(r){ return r.p; }).sort(function(x, y){ return (y.a.aff + y.a.own) - (x.a.aff + x.a.own); });
+    tableHead(pt, ["상품", "방식", "주문", "수익"]);
+    if(!ranked.length){ var tr0 = el("tr"), td0 = el("td", "empty", "이번 달 기록이 없습니다."); td0.colSpan = 4; tr0.appendChild(td0); pt.appendChild(tr0); }
+    ranked.slice(0, 8).forEach(function(r){
+      var tr = el("tr"), ty = el("td");
+      ty.appendChild(el("span", "pill " + (r.p.type === "aff" ? "aff" : "own"), TYPE_LABEL[r.p.type]));
+      tr.appendChild(el("td", null, r.p.name)); tr.appendChild(ty);
+      tr.appendChild(el("td", "n", cnt(r.a.orders))); tr.appendChild(el("td", "n", won(r.a.aff + r.a.own))); pt.appendChild(tr);
+    });
+
+    renderActions(tot, byCh, ranked, logs);
+  }
+  function tableHead(t, cols){ var h = el("tr"); cols.forEach(function(c, i){ h.appendChild(el("th", i ? "n" : null, c)); }); t.appendChild(h); }
+  function renderActions(tot, byCh, ranked, logs){
+    var list = $("#actions"); list.textContent = "";
+    var items = [];
+    if(!state.products.length) items.push("③에서 제휴 링크 상품 3~5개를 추가하고 ④에서 첫 대본을 만드세요.");
+    if(!logs.length) items.push("이번 달 기록이 없습니다. 업로드 다음 날 ⑤에 조회·클릭·주문을 기록하세요.");
+    if(logs.length){
+      var days = {}; logs.forEach(function(l){ days[l.date] = 1; });
+      var ups = logs.length, d = Object.keys(days).length;
+      items.push("이번 달 " + d + "일 동안 " + ups + "건 업로드했습니다. 목표 페이스는 한 달 " + cnt(state.goal.videos * state.goal.channels) + "건입니다.");
+    }
+    var best = ranked[0];
+    if(best && best.p.type === "aff" && best.a.orders >= 5) items.push("'" + best.p.name + "'이(가) 제휴로 잘 팔립니다. 같은 상품이나 비슷한 상품을 위탁·사입으로 직접 판매해 마진을 높여 보세요 (2단계).");
+    var thin = state.products.filter(function(p){ return p.type !== "aff" && p.status !== "stop" && marginRate(p) < 20; });
+    if(thin.length) items.push("순마진 20% 미만 상품 " + thin.length + "개: " + thin.map(function(p){ return p.name; }).join(", ") + " — 가격을 올리거나 원가를 낮추거나 중단하세요.");
+    var chs = ["yt", "ig", "tt"].filter(function(c){ return byCh[c] && byCh[c].views >= 1000; });
+    if(chs.length >= 2){
+      chs.sort(function(a, b){ return byCh[a].clicks / byCh[a].views - byCh[b].clicks / byCh[b].views; });
+      items.push("클릭률이 가장 낮은 채널은 " + CH_LABEL[chs[0]] + "입니다. 그 채널은 첫 자막과 링크 안내 문구를 바꿔 테스트하세요.");
+    }
+    if(tot.views && tot.clicks / tot.views < 0.005) items.push("클릭률이 0.5% 미만입니다. 영상 끝에 \"설명란 링크\" 안내를 더 크게, 2초 이상 보여 주세요.");
+    items.push("업로드 전 확인: 설명란에 광고 표시 문구가 있나요? 영상 출처를 기록했나요?");
+    items.forEach(function(t){ list.appendChild(el("li", null, "• " + t)); });
+  }
+
+  /* ---------- 백업 ---------- */
+  $("#exportBtn").addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type:"application/json" });
+    var a = el("a"); a.href = URL.createObjectURL(blob); a.download = "dual-shorts-" + todayKey() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  });
+  $("#importBtn").addEventListener("click", function(){ $("#importFile").click(); });
+  $("#importFile").addEventListener("change", function(e){
+    var file = e.target.files[0]; if(!file) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try{
+        var v = JSON.parse(r.result);
+        if(!v || !Array.isArray(v.products) || !Array.isArray(v.logs)) throw new Error("bad");
+        state = { goal: merge(DEFAULT_GOAL, v.goal || {}), products: v.products, logs: v.logs, routine: v.routine || { day:"", done:[] } };
+        save();
+        Array.prototype.forEach.call(goalInputs, function(inp){ inp.value = state.goal[inp.dataset.goal]; });
+        renderAll(); alert("백업을 불러왔습니다.");
+      }catch(err){ alert("백업 파일 형식이 올바르지 않습니다."); }
+    };
+    r.readAsText(file); e.target.value = "";
+  });
+
+  function renderAll(){
+    renderRoutine(); renderGoal(); renderProducts(); renderLogs(); renderDash();
+    fillProductSelect($("#sProduct"), true); fillProductSelect($("#logProduct"), true);
+  }
+  renderAll();
+})();
+</script>
