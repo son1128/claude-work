@@ -10,6 +10,7 @@ A collection of self-contained single-file HTML "mini-apps." Each app is one sta
 | [`mini-apps/mirror-bloom`](mini-apps/mirror-bloom/index.html) | Kaleidoscope drawing toy (canvas) |
 | [`mini-apps/nova-fold`](mini-apps/nova-fold/index.html) | 2048-style tile-merging game |
 | [`mini-apps/dual-shorts`](mini-apps/dual-shorts/index.html) | Shopping-shorts dual-income planner: goal back-calculator, product margins, 15s script generator, results log + dashboard (Korean UI; see [`reports/dual-shorts-playbook.md`](reports/dual-shorts-playbook.md)) |
+| [`mini-apps/landing-kit`](mini-apps/landing-kit/index.html) | Lead-capture landing page template for a free live class: edit one `CONFIG` object; sign-ups stay in the browser (view/export at `#leads`) (Korean UI) |
 
 ## Running an app
 

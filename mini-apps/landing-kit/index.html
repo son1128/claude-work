@@ -1,0 +1,642 @@
+<!doctype html>
+<title>Landing Kit</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#f4f6fa;
+    --surface:#ffffff;
+    --surface-2:#e9edf4;
+    --border:#d6dce6;
+    --text:#141b26;
+    --text-dim:#5c6878;
+    --accent:#2563eb;
+    --accent-2:#38bdf8;
+    --accent-ink:#ffffff;
+    --accent-soft:#dde7fd;
+    --hero-bg:#0d1a33;
+    --hero-text:#f2f6fc;
+    --hero-dim:#a9b8d0;
+    --warn:#b91c1c;
+    --warn-soft:#fbe2e2;
+    --good:#15803d;
+    --good-soft:#dcf1e3;
+    --shadow: 0 1px 2px rgba(20,30,50,.05), 0 10px 28px rgba(20,30,50,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0b111b;
+      --surface:#141c29;
+      --surface-2:#1b2535;
+      --border:#29364a;
+      --text:#e9eef5;
+      --text-dim:#97a4b7;
+      --accent:#5b8cff;
+      --accent-2:#38bdf8;
+      --accent-ink:#0a1222;
+      --accent-soft:#1b2a48;
+      --hero-bg:#060c18;
+      --hero-text:#f2f6fc;
+      --hero-dim:#9aa9c2;
+      --warn:#f87171;
+      --warn-soft:#3a1717;
+      --good:#4ade80;
+      --good-soft:#15301f;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b111b;
+    --surface:#141c29;
+    --surface-2:#1b2535;
+    --border:#29364a;
+    --text:#e9eef5;
+    --text-dim:#97a4b7;
+    --accent:#5b8cff;
+    --accent-2:#38bdf8;
+    --accent-ink:#0a1222;
+    --accent-soft:#1b2a48;
+    --hero-bg:#060c18;
+    --hero-text:#f2f6fc;
+    --hero-dim:#9aa9c2;
+    --warn:#f87171;
+    --warn-soft:#3a1717;
+    --good:#4ade80;
+    --good-soft:#15301f;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Noto Sans KR", ui-sans-serif, system-ui, sans-serif; font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; padding-bottom:5rem;
+  }
+  .col{ max-width:640px; margin:0 auto; padding:0 1rem; }
+  section{ padding:3.5rem 0; }
+  section + section{ border-top:1px solid var(--border); }
+  .display{ font-family:"Black Han Sans", sans-serif; font-weight:400; letter-spacing:.01em; line-height:1.25; text-wrap:balance; margin:0; }
+  h2.display{ font-size:clamp(1.6rem, 6vw, 2.2rem); text-align:center; }
+  .lead{ color:var(--text-dim); text-align:center; margin:.6rem auto 0; max-width:30em; }
+  .grad{ background:linear-gradient(90deg, var(--accent-2), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .mono{ font-family:"IBM Plex Mono", monospace; }
+
+  .btn{
+    display:block; width:100%; border:none; cursor:pointer; font:inherit; font-weight:700; font-size:1.1rem;
+    padding:1rem 1.2rem; border-radius:14px; color:#fff;
+    background:linear-gradient(90deg, var(--accent-2), var(--accent)); box-shadow:0 8px 22px rgba(37,99,235,.3);
+    transition:transform .15s, box-shadow .15s;
+  }
+  .btn:hover{ transform:translateY(-1px); box-shadow:0 12px 26px rgba(37,99,235,.38); }
+  .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+  /* hero */
+  .hero{ background:var(--hero-bg); color:var(--hero-text); padding:3.5rem 0 3rem; text-align:center; }
+  .badge{
+    display:inline-flex; gap:.4rem; align-items:center; font-size:.82rem; font-weight:700;
+    background:rgba(56,189,248,.15); color:var(--accent-2); border:1px solid rgba(56,189,248,.4);
+    padding:.25rem .7rem; border-radius:999px;
+  }
+  .badge i{ width:.5rem; height:.5rem; border-radius:50%; background:#ef4444; display:inline-block; }
+  .hero .pre{ color:var(--hero-dim); font-size:1.05rem; margin:1.2rem 0 .3rem; }
+  .hero h1{ font-size:clamp(2rem, 9vw, 3.1rem); }
+  .hero .sub{ color:var(--hero-dim); margin:1rem auto 0; max-width:28em; }
+  .when{
+    margin:1.8rem auto 1.6rem; border:1px solid rgba(91,140,255,.55); border-radius:14px; padding:1.1rem;
+    background:rgba(255,255,255,.03); max-width:420px;
+  }
+  .when .date{ font-family:"IBM Plex Mono", monospace; font-weight:600; font-size:clamp(1.4rem, 6vw, 1.9rem); }
+  .when .place{ color:var(--hero-dim); font-size:.9rem; margin-top:.2rem; }
+  .countdown{ margin-top:.7rem; font-size:.92rem; color:var(--accent-2); font-weight:500; }
+  .countdown b{ font-family:"IBM Plex Mono", monospace; }
+  .perks{ list-style:none; padding:0; margin:1rem 0 0; color:var(--hero-dim); font-size:.86rem; }
+
+  /* problem */
+  .worries{ list-style:none; padding:0; margin:1.6rem 0 0; display:flex; flex-direction:column; gap:.6rem; }
+  .worries li{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:.85rem 1rem; display:flex; gap:.6rem; }
+  .worries li::before{ content:"\201C"; color:var(--accent); font-family:"Black Han Sans", sans-serif; font-size:1.6rem; line-height:1; }
+  .turn{ text-align:center; margin-top:1.8rem; font-weight:700; font-size:1.15rem; }
+
+  /* steps / cards */
+  .steps{ display:flex; flex-direction:column; gap:.8rem; margin-top:1.6rem; }
+  .step{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.2rem; box-shadow:var(--shadow); }
+  .step .tag{ display:inline-block; font-size:.78rem; font-weight:700; color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:.05rem .5rem; }
+  .step h3{ margin:.5rem 0 .25rem; font-size:1.12rem; }
+  .step p{ margin:0; color:var(--text-dim); font-size:.94rem; }
+  .cards{ display:grid; gap:.8rem; margin-top:1.6rem; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.2rem; text-align:center; box-shadow:var(--shadow); }
+  .card .ico{ font-size:2rem; line-height:1; }
+  .card h3{ margin:.6rem 0 .3rem; font-size:1.08rem; color:var(--accent); }
+  .card p{ margin:0; color:var(--text-dim); font-size:.92rem; }
+
+  /* host */
+  .host{ display:flex; flex-direction:column; align-items:center; gap:1rem; margin-top:1.6rem; }
+  .avatar{
+    width:132px; height:132px; border-radius:50%; object-fit:cover; background:var(--surface-2);
+    display:grid; place-items:center; font-family:"Black Han Sans", sans-serif; font-size:2.6rem; color:var(--accent);
+    border:3px solid var(--accent-soft);
+  }
+  .host .name{ font-size:1.3rem; font-weight:700; }
+  .host .role{ color:var(--accent); font-weight:500; margin-top:-.6rem; }
+  .bio{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1rem 1.2rem 1rem 2.2rem; margin:0; width:100%; box-shadow:var(--shadow); }
+  .bio li{ margin:.25rem 0; }
+
+  /* proof */
+  .proofs{ display:flex; flex-direction:column; gap:.8rem; margin-top:1.6rem; }
+  .proof{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.2rem; box-shadow:var(--shadow); }
+  .proof .who{ color:var(--text-dim); font-size:.88rem; }
+  .proof .res{ font-weight:700; font-size:1.2rem; margin:.15rem 0 .4rem; }
+  .proof q{ display:block; color:var(--text); font-size:.94rem; quotes:none; }
+  .sample{ display:inline-block; font-size:.72rem; font-weight:700; background:var(--warn-soft); color:var(--warn); border-radius:6px; padding:.05rem .45rem; margin-left:.4rem; vertical-align:middle; }
+  .disclaimer{ color:var(--text-dim); font-size:.8rem; text-align:center; margin-top:1rem; }
+
+  /* benefits */
+  .benefits{ background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-top:1.6rem; box-shadow:var(--shadow); overflow:hidden; }
+  .benefits li{ list-style:none; padding:.95rem 1.2rem; display:flex; gap:.7rem; align-items:center; }
+  .benefits li + li{ border-top:1px dashed var(--border); }
+  .benefits ul{ margin:0; padding:0; }
+  .benefits .chk{ flex:none; width:1.5rem; height:1.5rem; border-radius:50%; background:var(--good-soft); color:var(--good); display:grid; place-items:center; font-size:.85rem; font-weight:700; }
+  .benefits .cond{ background:var(--surface-2); color:var(--text-dim); font-size:.82rem; padding:.6rem 1.2rem; text-align:center; }
+
+  /* faq */
+  details{ background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:.85rem 1rem; margin-top:.6rem; }
+  details:first-of-type{ margin-top:1.6rem; }
+  summary{ cursor:pointer; font-weight:500; }
+  details p{ margin:.6rem 0 0; color:var(--text-dim); font-size:.94rem; }
+
+  /* form */
+  .formbox{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:1.4rem 1.2rem; margin-top:1.6rem; box-shadow:var(--shadow); }
+  .field{ display:flex; flex-direction:column; gap:.3rem; margin-bottom:1rem; }
+  .field label{ font-weight:700; font-size:.92rem; }
+  .field input{
+    font:inherit; color:var(--text); background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    padding:.8rem .9rem; width:100%;
+  }
+  .field input:focus{ outline:2px solid var(--accent); outline-offset:0; }
+  .field input[aria-invalid="true"]{ border-color:var(--warn); }
+  .err{ color:var(--warn); font-size:.82rem; min-height:1.1em; }
+  .consents{ display:flex; flex-direction:column; gap:.5rem; margin:.3rem 0 1.2rem; }
+  .consent{ display:flex; gap:.55rem; align-items:flex-start; font-size:.9rem; }
+  .consent input{ margin-top:.3rem; accent-color:var(--accent); width:1.05rem; height:1.05rem; flex:none; }
+  .consent.all{ font-weight:700; padding-bottom:.5rem; border-bottom:1px solid var(--border); }
+  .consent .req{ color:var(--accent); font-weight:700; }
+  .consent .opt{ color:var(--text-dim); }
+  .consent button{ border:none; background:none; color:var(--text-dim); text-decoration:underline; cursor:pointer; font:inherit; font-size:.82rem; padding:0; margin-left:.25rem; }
+  .terms{ background:var(--surface-2); border-radius:10px; padding:.7rem .85rem; font-size:.8rem; color:var(--text-dim); margin:.1rem 0 .2rem 1.6rem; white-space:pre-line; }
+  .done{ text-align:center; padding:1rem 0; }
+  .done .ok{ width:3.4rem; height:3.4rem; border-radius:50%; background:var(--good-soft); color:var(--good); display:grid; place-items:center; margin:0 auto .8rem; font-size:1.6rem; font-weight:700; }
+  .done h3{ margin:0 0 .4rem; font-size:1.25rem; }
+  .done p{ margin:.2rem 0; color:var(--text-dim); }
+
+  /* notice & footer */
+  .notice{ font-size:.84rem; color:var(--text-dim); }
+  .notice h3{ font-size:.92rem; color:var(--text); margin:1.2rem 0 .3rem; }
+  .notice p{ margin:0; white-space:pre-line; }
+  footer{ font-size:.78rem; color:var(--text-dim); padding:2rem 0 1rem; border-top:1px solid var(--border); }
+  footer p{ margin:.1rem 0; }
+
+  /* sticky CTA */
+  .sticky{
+    position:fixed; left:0; right:0; bottom:0; padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(8px); border-top:1px solid var(--border);
+    transition:transform .2s; z-index:10;
+  }
+  .sticky.hide{ transform:translateY(110%); }
+  .sticky .btn{ max-width:608px; margin:0 auto; padding:.85rem 1rem; font-size:1rem; }
+
+  /* leads admin (#leads) */
+  .admin{ background:var(--surface); border:2px dashed var(--accent); border-radius:14px; padding:1rem; margin:1rem 0; }
+  .admin h2{ margin:0 0 .5rem; font-size:1.05rem; }
+  .admin table{ width:100%; border-collapse:collapse; font-size:.84rem; }
+  .admin th, .admin td{ text-align:left; padding:.35rem .4rem; border-bottom:1px solid var(--border); }
+  .admin .row{ display:flex; gap:.5rem; margin-top:.7rem; flex-wrap:wrap; }
+  .admin .row button{ font:inherit; font-size:.85rem; border:1px solid var(--border); background:var(--surface-2); color:var(--text); border-radius:8px; padding:.35rem .7rem; cursor:pointer; }
+  .admin .scroll{ overflow-x:auto; }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+
+<div id="admin"></div>
+
+<header class="hero">
+  <div class="col">
+    <span class="badge"><i></i><span id="heroBadge"></span></span>
+    <p class="pre" id="heroPre"></p>
+    <h1 class="display" id="heroTitle"></h1>
+    <p class="sub" id="heroSub"></p>
+    <div class="when">
+      <div class="date" id="whenDate"></div>
+      <div class="place" id="whenPlace"></div>
+      <div class="countdown" id="countdown" aria-live="polite"></div>
+    </div>
+    <button class="btn" type="button" data-goform id="heroCta"></button>
+    <ul class="perks" id="heroPerks"></ul>
+  </div>
+</header>
+
+<section id="problem"><div class="col">
+  <h2 class="display" id="problemTitle"></h2>
+  <ul class="worries" id="problemList"></ul>
+  <p class="turn" id="problemTurn"></p>
+</div></section>
+
+<section id="solution"><div class="col">
+  <h2 class="display" id="solutionTitle"></h2>
+  <p class="lead" id="solutionLead"></p>
+  <div class="steps" id="solutionSteps"></div>
+</div></section>
+
+<section id="barriers"><div class="col">
+  <h2 class="display" id="barriersTitle"></h2>
+  <div class="cards" id="barrierCards"></div>
+</div></section>
+
+<section id="host"><div class="col">
+  <h2 class="display" id="hostTitle"></h2>
+  <div class="host">
+    <div id="hostAvatar"></div>
+    <div class="name" id="hostName"></div>
+    <div class="role" id="hostRole"></div>
+    <ul class="bio" id="hostBio"></ul>
+  </div>
+</div></section>
+
+<section id="proof"><div class="col">
+  <h2 class="display" id="proofTitle"></h2>
+  <div class="proofs" id="proofList"></div>
+  <p class="disclaimer" id="proofDisclaimer"></p>
+</div></section>
+
+<section id="benefits"><div class="col">
+  <h2 class="display" id="benefitsTitle"></h2>
+  <div class="benefits"><ul id="benefitList"></ul><div class="cond" id="benefitCond"></div></div>
+</div></section>
+
+<section id="faq"><div class="col">
+  <h2 class="display">자주 묻는 질문</h2>
+  <div id="faqList"></div>
+</div></section>
+
+<section id="apply"><div class="col">
+  <h2 class="display" id="formTitle"></h2>
+  <p class="lead" id="formLead"></p>
+  <div class="formbox">
+    <form id="leadForm" novalidate>
+      <div class="field">
+        <label for="fName">성함</label>
+        <input id="fName" name="name" type="text" autocomplete="name" maxlength="20" placeholder="홍길동" required>
+        <span class="err" id="eName"></span>
+      </div>
+      <div class="field">
+        <label for="fPhone">연락처</label>
+        <input id="fPhone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="010-0000-0000" required>
+        <span class="err" id="ePhone"></span>
+      </div>
+      <div class="consents">
+        <label class="consent all"><input type="checkbox" id="cAll"><span>전체 동의</span></label>
+        <label class="consent"><input type="checkbox" id="cPrivacy"><span><span class="req">[필수]</span> 개인정보 수집·이용 동의<button type="button" data-terms="tPrivacy" aria-expanded="false">보기</button></span></label>
+        <div class="terms" id="tPrivacy" hidden></div>
+        <label class="consent"><input type="checkbox" id="cMarketing"><span><span class="opt">[선택]</span> 광고성 정보 수신 동의 (문자·카카오톡)<button type="button" data-terms="tMarketing" aria-expanded="false">보기</button></span></label>
+        <div class="terms" id="tMarketing" hidden></div>
+        <span class="err" id="eConsent"></span>
+      </div>
+      <button class="btn" type="submit" id="submitBtn"></button>
+    </form>
+    <div class="done" id="doneBox" hidden>
+      <div class="ok">✓</div>
+      <h3>신청이 완료되었습니다</h3>
+      <p id="doneWhen"></p>
+      <p id="doneNext"></p>
+    </div>
+  </div>
+</div></section>
+
+<section class="notice"><div class="col" id="noticeBox"></div></section>
+
+<footer><div class="col" id="footerBox"></div></footer>
+
+<div class="sticky" id="sticky"><button class="btn" type="button" data-goform id="stickyCta"></button></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================================================================
+     이 CONFIG만 고치면 페이지 전체 문구가 바뀝니다.
+     - [대괄호] 부분은 반드시 실제 정보로 바꾸세요.
+     - proof.sample 이 true 이면 후기마다 "예시" 표시가 붙습니다.
+       실제 후기로 교체한 뒤 false 로 바꾸세요.
+     ================================================================ */
+  var CONFIG = {
+    brand: "[브랜드명]",
+    event: {
+      badge: "무료 라이브 특강",
+      start: "2026-11-12T19:30:00+09:00",
+      end:   "2026-11-12T21:30:00+09:00",
+      timeZone: "Asia/Seoul",
+      place: "온라인 라이브 · 접속 링크는 문자로 안내",
+      capacity: 300
+    },
+    hero: {
+      pre: "구독자 0명, 촬영 없이 시작하는",
+      title: ["15초 쇼핑 쇼츠", "이중 수익 공식"],
+      highlightLine: 1,
+      sub: "제휴 링크 수수료로 상품을 검증하고, 검증된 상품은 직접 팔아 마진까지 가져가는 2단계 구조를 공개합니다.",
+      cta: "무료로 신청하기",
+      perks: ["참석자 한정 무료 자료 제공", "실시간 Q&A 진행"]
+    },
+    problem: {
+      title: "혹시 이런 고민 하고 계신가요?",
+      items: [
+        "촬영도 못 하고 구독자도 0명인데 가능할까요?",
+        "쇼츠는 결국 조회수가 터져야 돈이 되는 거 아닌가요?",
+        "제휴 링크 3% 수수료로는 용돈 벌이밖에 안 되던데요…"
+      ],
+      turn: "그래서 수익 구조를 두 단계로 나눴습니다."
+    },
+    solution: {
+      title: "같은 영상으로 두 번 버는 구조",
+      lead: "영상 하나를 만들면 제휴 수수료와 판매 마진, 두 곳에서 수익이 생깁니다.",
+      steps: [
+        { tag: "1단계", title: "제휴 링크로 상품 검증", desc: "15초 영상에 제휴 링크를 붙여 어떤 상품이 실제로 팔리는지 비용 없이 확인합니다." },
+        { tag: "2단계", title: "검증된 상품은 직접 판매", desc: "반응이 확인된 상품을 위탁·사입으로 직접 판매해 수수료 대신 판매 마진을 가져갑니다." },
+        { tag: "확장", title: "영상 1개를 3개 채널에", desc: "유튜브 쇼츠·인스타 릴스·틱톡에 동시에 올려 같은 노력으로 노출을 늘립니다." }
+      ]
+    },
+    barriers: {
+      title: "초보자도 할 수 있나요?",
+      cards: [
+        { ico: "💻", title: "초기 비용 없이 시작", desc: "노트북과 스마트폰이면 충분합니다." },
+        { ico: "📱", title: "채널 운영 경험 없어도 OK", desc: "새로 만든 계정으로 구조부터 세팅합니다." },
+        { ico: "🎬", title: "얼굴 노출 없이", desc: "제품만 나오는 영상으로 만듭니다. 직접 찍거나 허락받은 영상만 씁니다." },
+        { ico: "⏱️", title: "퇴근 후 하루 2시간", desc: "촬영 30분, 편집 60분, 업로드·기록 30분 루틴." }
+      ]
+    },
+    host: {
+      title: "강사 소개",
+      name: "[강사 이름]",
+      role: "[한 줄 소개]",
+      photo: "",
+      bio: [
+        "[검증 가능한 이력 1]",
+        "[검증 가능한 이력 2]",
+        "[검증 가능한 이력 3]"
+      ]
+    },
+    proof: {
+      title: "먼저 시작한 분들의 이야기",
+      sample: true,
+      items: [
+        { who: "30대 직장인 A님", result: "첫 달 제휴 수익 첫 정산", quote: "퇴근 후 2시간씩, 한 달 동안 영상 40개를 올렸어요." },
+        { who: "40대 주부 B님", result: "3개월 차 직접 판매 시작", quote: "제휴로 반응 본 상품을 위탁으로 팔기 시작했어요." }
+      ],
+      disclaimer: "수익은 개인의 노력과 환경에 따라 다르며, 특정 수익을 보장하지 않습니다."
+    },
+    benefits: {
+      title: "참석자 혜택",
+      items: ["15초 쇼핑 쇼츠 대본 템플릿 30종", "상품 마진 계산 시트", "특강 다시보기 (3일간)"],
+      condition: "* 라이브에 끝까지 참여하신 분께 제공됩니다."
+    },
+    faq: [
+      { q: "정말 무료인가요?", a: "네, 라이브 특강은 무료입니다. 특강 중 유료 과정 안내가 있을 수 있으며, 신청은 자유입니다." },
+      { q: "다시보기가 있나요?", a: "참석자에게 3일간 다시보기를 제공합니다." },
+      { q: "어떤 준비물이 필요한가요?", a: "스마트폰 또는 노트북만 있으면 됩니다." }
+    ],
+    form: {
+      title: "지금 무료로 신청하세요",
+      lead: "신청하시면 특강 전날과 당일에 접속 링크를 문자로 보내드립니다.",
+      submit: "무료 특강 신청하기",
+      next: "특강 전날과 1시간 전에 접속 링크를 문자로 보내드립니다.",
+      privacy: "수집 항목: 성함, 휴대전화 번호\n이용 목적: 특강 접속 링크 및 일정 안내, 신청 확인 연락\n보유 기간: 특강 종료 후 [3개월] 뒤 파기\n동의를 거부할 수 있으며, 거부 시 특강 신청이 제한됩니다.",
+      marketing: "수신 내용: 이후 강의·이벤트·할인 안내\n수신 방법: 문자, 카카오톡\n보유 기간: 동의 철회 시까지\n동의하지 않아도 특강 신청은 가능하며, 언제든 수신을 거부할 수 있습니다."
+    },
+    notice: [
+      { h: "환불 규정", p: "[유료 과정 판매 시 환불 기준을 적으세요. 예: 수강 시작 전 전액 환불, 이후 진행률에 따라 부분 환불]" },
+      { h: "개인정보 처리", p: "신청 정보는 특강 안내 목적으로만 사용하며, 보유 기간이 지나면 파기합니다. 문의: [이메일]" }
+    ],
+    footer: [
+      "상호: [상호명] · 대표: [대표자명]",
+      "사업자등록번호: [000-00-00000] · 통신판매업 신고: [제0000-지역-0000호]",
+      "주소: [사업장 주소] · 고객센터: [연락처]"
+    ]
+  };
+
+  var LEADS_KEY = "lk_leads";
+  var reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function $(s){ return document.querySelector(s); }
+  function el(tag, cls, text){ var e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+  function setText(sel, t){ $(sel).textContent = t; }
+  function load(key, fallback){ try{ var v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; } }
+  function save(key, v){ try{ localStorage.setItem(key, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  var DAYS = ["일","월","화","수","목","금","토"];
+  // 보는 사람의 시간대와 상관없이 행사 시간대(CONFIG.event.timeZone) 기준으로 표시
+  function zoned(d){
+    try{
+      var parts = {}, f = new Intl.DateTimeFormat("en-US", { timeZone: CONFIG.event.timeZone, year:"numeric", month:"numeric", day:"numeric", hour:"numeric", minute:"numeric", hourCycle:"h23" });
+      f.formatToParts(d).forEach(function(p){ parts[p.type] = p.value; });
+      return new Date(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute);
+    }catch(e){ return d; }
+  }
+  function fmtDate(d){ d = zoned(d); return (d.getMonth()+1) + "월 " + d.getDate() + "일 (" + DAYS[d.getDay()] + ")"; }
+  function fmtTime(d){ d = zoned(d); var h = d.getHours(), m = d.getMinutes(); return (h < 12 ? "오전 " : "오후 ") + ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m; }
+  function fmtPhone(p){ return p.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3"); }
+
+  /* ---------- 렌더링 ---------- */
+  var C = CONFIG, start = new Date(C.event.start), end = new Date(C.event.end);
+
+  function render(){
+    document.title = C.hero.title.join(" ") + " | " + C.brand;
+    setText("#heroBadge", C.event.badge);
+    setText("#heroPre", C.hero.pre);
+    var h1 = $("#heroTitle");
+    C.hero.title.forEach(function(line, i){
+      if(i) h1.appendChild(el("br"));
+      h1.appendChild(el("span", i === C.hero.highlightLine ? "grad" : null, line));
+    });
+    setText("#heroSub", C.hero.sub);
+    setText("#whenDate", fmtDate(start) + " " + fmtTime(start));
+    setText("#whenPlace", C.event.place + (C.event.capacity ? " · 선착순 " + C.event.capacity + "명" : ""));
+    setText("#heroCta", C.hero.cta);
+    setText("#stickyCta", C.hero.cta);
+    C.hero.perks.forEach(function(p){ $("#heroPerks").appendChild(el("li", null, "* " + p)); });
+
+    setText("#problemTitle", C.problem.title);
+    C.problem.items.forEach(function(t){ $("#problemList").appendChild(el("li", null, t)); });
+    setText("#problemTurn", C.problem.turn);
+
+    setText("#solutionTitle", C.solution.title);
+    setText("#solutionLead", C.solution.lead);
+    C.solution.steps.forEach(function(s){
+      var box = el("div", "step");
+      box.appendChild(el("span", "tag", s.tag)); box.appendChild(el("h3", null, s.title)); box.appendChild(el("p", null, s.desc));
+      $("#solutionSteps").appendChild(box);
+    });
+
+    setText("#barriersTitle", C.barriers.title);
+    C.barriers.cards.forEach(function(c){
+      var box = el("div", "card");
+      box.appendChild(el("div", "ico", c.ico)); box.appendChild(el("h3", null, c.title)); box.appendChild(el("p", null, c.desc));
+      $("#barrierCards").appendChild(box);
+    });
+
+    setText("#hostTitle", C.host.title);
+    var av = $("#hostAvatar");
+    if(C.host.photo){ var img = el("img", "avatar"); img.src = C.host.photo; img.alt = C.host.name; av.appendChild(img); }
+    else { av.appendChild(el("div", "avatar", (C.host.name.replace(/[\[\]]/g, "") || "?").charAt(0))); }
+    setText("#hostName", C.host.name);
+    setText("#hostRole", C.host.role);
+    C.host.bio.forEach(function(b){ $("#hostBio").appendChild(el("li", null, b)); });
+
+    setText("#proofTitle", C.proof.title);
+    C.proof.items.forEach(function(p){
+      var box = el("div", "proof"), who = el("div", "who", p.who);
+      if(C.proof.sample) who.appendChild(el("span", "sample", "예시 · 실제 후기로 교체"));
+      box.appendChild(who); box.appendChild(el("div", "res", p.result)); box.appendChild(el("q", null, p.quote));
+      $("#proofList").appendChild(box);
+    });
+    setText("#proofDisclaimer", C.proof.disclaimer);
+
+    setText("#benefitsTitle", C.benefits.title);
+    C.benefits.items.forEach(function(b){
+      var li = el("li"); li.appendChild(el("span", "chk", "✓")); li.appendChild(el("span", null, b)); $("#benefitList").appendChild(li);
+    });
+    setText("#benefitCond", C.benefits.condition);
+
+    C.faq.forEach(function(f){
+      var d = el("details"); d.appendChild(el("summary", null, f.q)); d.appendChild(el("p", null, f.a)); $("#faqList").appendChild(d);
+    });
+
+    setText("#formTitle", C.form.title);
+    setText("#formLead", C.form.lead);
+    setText("#submitBtn", C.form.submit);
+    setText("#tPrivacy", C.form.privacy);
+    setText("#tMarketing", C.form.marketing);
+
+    C.notice.forEach(function(n){ $("#noticeBox").appendChild(el("h3", null, n.h)); $("#noticeBox").appendChild(el("p", null, n.p)); });
+    $("#footerBox").appendChild(el("p", null, "© " + new Date().getFullYear() + " " + C.brand));
+    C.footer.forEach(function(f){ $("#footerBox").appendChild(el("p", null, f)); });
+  }
+
+  /* ---------- 카운트다운 ---------- */
+  function tick(){
+    var now = Date.now(), box = $("#countdown");
+    if(now >= end.getTime()){ box.textContent = "종료된 특강입니다. 다음 일정은 신청 시 안내해 드립니다."; return false; }
+    if(now >= start.getTime()){ box.textContent = "지금 라이브 진행 중"; return true; }
+    var s = Math.floor((start.getTime() - now) / 1000), d = Math.floor(s / 86400);
+    var hh = Math.floor(s % 86400 / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+    function p(n){ return (n < 10 ? "0" : "") + n; }
+    box.textContent = "";
+    box.appendChild(document.createTextNode("시작까지 "));
+    box.appendChild(el("b", null, (d ? "D-" + d + " " : "") + p(hh) + ":" + p(mm) + ":" + p(ss)));
+    return true;
+  }
+
+  /* ---------- 신청 폼 ---------- */
+  var form = $("#leadForm"), nameIn = $("#fName"), phoneIn = $("#fPhone");
+  var cAll = $("#cAll"), cPrivacy = $("#cPrivacy"), cMarketing = $("#cMarketing");
+
+  phoneIn.addEventListener("input", function(){
+    var d = phoneIn.value.replace(/\D/g, "").slice(0, 11), out = d;
+    if(d.length > 3 && d.length <= 7) out = d.slice(0, 3) + "-" + d.slice(3);
+    else if(d.length > 7 && d.length <= 10) out = d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6);
+    else if(d.length > 10) out = d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+    phoneIn.value = out;
+  });
+  cAll.addEventListener("change", function(){ cPrivacy.checked = cMarketing.checked = cAll.checked; });
+  [cPrivacy, cMarketing].forEach(function(c){
+    c.addEventListener("change", function(){ cAll.checked = cPrivacy.checked && cMarketing.checked; });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-terms]"), function(b){
+    b.addEventListener("click", function(e){
+      e.preventDefault();
+      var t = document.getElementById(b.dataset.terms), open = t.hidden;
+      t.hidden = !open; b.setAttribute("aria-expanded", open ? "true" : "false"); b.textContent = open ? "닫기" : "보기";
+    });
+  });
+
+  function setErr(input, errSel, msg){
+    $(errSel).textContent = msg;
+    if(input) input.setAttribute("aria-invalid", msg ? "true" : "false");
+    return !msg;
+  }
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    var name = nameIn.value.trim(), phone = phoneIn.value.replace(/\D/g, "");
+    var ok = setErr(nameIn, "#eName", name.length < 2 ? "성함을 2자 이상 입력해 주세요." : "");
+    ok = setErr(phoneIn, "#ePhone", /^01[016789]\d{7,8}$/.test(phone) ? "" : "휴대전화 번호를 정확히 입력해 주세요.") && ok;
+    ok = setErr(null, "#eConsent", cPrivacy.checked ? "" : "개인정보 수집·이용에 동의해야 신청할 수 있습니다.") && ok;
+    if(!ok){ var bad = form.querySelector('[aria-invalid="true"]') || cPrivacy; bad.focus(); return; }
+
+    var leads = load(LEADS_KEY, []);
+    var dup = leads.some(function(l){ return l.phone === phone; });
+    if(!dup){
+      leads.push({ name:name, phone:phone, marketing:cMarketing.checked, at:new Date().toISOString() });
+      save(LEADS_KEY, leads);
+    }
+    form.hidden = true;
+    $("#doneBox").hidden = false;
+    setText("#doneWhen", fmtDate(start) + " " + fmtTime(start) + " · " + C.event.place);
+    setText("#doneNext", dup ? "이미 신청된 번호입니다. 안내 문자를 기다려 주세요." : C.form.next);
+    renderAdmin();
+  });
+
+  /* ---------- 스크롤 & 하단 고정 버튼 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-goform]"), function(b){
+    b.addEventListener("click", function(){
+      $("#apply").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      setTimeout(function(){ if(!form.hidden) nameIn.focus({ preventScroll: true }); }, reduceMotion ? 0 : 450);
+    });
+  });
+  if("IntersectionObserver" in window){
+    var seen = {};
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ seen[en.target.id || "hero"] = en.isIntersecting; });
+      $("#sticky").classList.toggle("hide", !!(seen.hero || seen.apply));
+    });
+    io.observe($(".hero")); io.observe($("#apply"));
+  }
+
+  /* ---------- 신청자 확인 (주소 끝에 #leads) ---------- */
+  function renderAdmin(){
+    var box = $("#admin"); box.textContent = "";
+    if(location.hash !== "#leads") return;
+    var leads = load(LEADS_KEY, []), wrap = el("div", "admin col");
+    wrap.appendChild(el("h2", null, "신청자 " + leads.length + "명 (이 브라우저에 저장된 목록)"));
+    if(leads.length){
+      var sc = el("div", "scroll"), t = el("table"), hr = el("tr");
+      ["신청 시각", "성함", "연락처", "광고 수신"].forEach(function(h){ hr.appendChild(el("th", null, h)); });
+      t.appendChild(hr);
+      leads.forEach(function(l){
+        var tr = el("tr");
+        tr.appendChild(el("td", null, new Date(l.at).toLocaleString("ko-KR")));
+        tr.appendChild(el("td", null, l.name));
+        tr.appendChild(el("td", null, fmtPhone(l.phone)));
+        tr.appendChild(el("td", null, l.marketing ? "동의" : "-"));
+        t.appendChild(tr);
+      });
+      sc.appendChild(t); wrap.appendChild(sc);
+    }
+    var row = el("div", "row"), csv = el("button", null, "CSV 내보내기"), clr = el("button", null, "목록 비우기");
+    csv.type = clr.type = "button";
+    csv.addEventListener("click", function(){
+      var lines = ["신청시각,성함,연락처,광고수신"].concat(leads.map(function(l){
+        return ['"' + new Date(l.at).toLocaleString("ko-KR") + '"', '"' + l.name.replace(/"/g, '""') + '"', fmtPhone(l.phone), l.marketing ? "Y" : "N"].join(",");
+      }));
+      var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      var a = el("a"); a.href = URL.createObjectURL(blob); a.download = "leads.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+    });
+    clr.addEventListener("click", function(){ if(confirm("신청자 목록을 모두 지울까요?")){ save(LEADS_KEY, []); renderAdmin(); } });
+    row.appendChild(csv); row.appendChild(clr); wrap.appendChild(row);
+    box.appendChild(wrap);
+  }
+  window.addEventListener("hashchange", renderAdmin);
+
+  render();
+  renderAdmin();
+  if(tick()){ var timer = setInterval(function(){ if(!tick()) clearInterval(timer); }, 1000); }
+})();
+</script>
