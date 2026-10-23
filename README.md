@@ -33,6 +33,15 @@ To verify a change, open the file in a browser and exercise it manually.
 
 Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`, which uses [Pillow](https://pypi.org/project/Pillow/) to save drawings as PNG. Run with e.g. `python test-code/focus_ledger.py`. These are a separate, parallel implementation — changes to the HTML apps are not automatically reflected here and vice versa.
 
+## Pine scripts
+
+`pine-scripts/` holds TradingView Pine Script v6 indicators (Korean comments/docs):
+
+| Script | Description |
+| --- | --- |
+| [`pine-scripts/buy-sell-volume.pine`](pine-scripts/buy-sell-volume.pine) | Buy/sell volume split ([guide](pine-scripts/README.md)) |
+| [`pine-scripts/ppp/`](pine-scripts/ppp/README.md) | PPP oscillator clone + 4P strategy, with a Python port and Binance 1m backtest in `verify/` (report: [`reports/ppp-indicator-report.html`](reports/ppp-indicator-report.html)) |
+
 ## Firestore rules
 
 `firestore-rules/` holds role-based Firestore security rules for a sample CRM ("ClientBase") plus emulator tests — unrelated to the mini-apps. Unlike the rest of the repo it is an npm project: run `npm install && npm test` inside it (needs Node.js 20+ and Java 11+). See [`firestore-rules/README.md`](firestore-rules/README.md).

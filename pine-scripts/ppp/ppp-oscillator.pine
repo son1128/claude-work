@@ -1,0 +1,144 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// PPP 재현 오실레이터 (PPP Clone)
+// ─────────────────────────────────────────────────────────────────────────────
+// 「PPP 지표 사용 가이드」(핑퐁팽) 문서의 그림과 설명만 보고 만든 "재현본"입니다.
+// 원본 PPP 지표는 비공개(초대 전용) 스크립트라서 계산식·설정값이 공개되지 않았고,
+// 이 코드는 원본과 같다는 보장이 없습니다.
+//
+// 문서가 밝힌 구성: 추세 방향 → 상대강도(RSI) → 추세 필터링(EMA) → 모멘텀 가속도
+//   1) RSI(14)                      상대강도
+//   2) RSI의 스토캐스틱(14)          0~100 범위로 정규화 (그림의 0~95 왕복 모양)
+//   3) EMA(3) 스무딩 → K(흰 선)      노이즈 제거
+//   4) K의 EMA(3) → D(분홍 선)       Signal
+//   5) |K − D| 증감 → 띠 색 4가지     모멘텀 가속·감속
+//
+// 화면에서 읽는 세 가지 (문서 3쪽)
+//   방향   — 흰 선(K)이 분홍 선(D) 위인가 아래인가 / 교차가 곧 트리거
+//   강도   — 교차 위치: 과매도 25 이하 골든크로스, 과매수 75 이상 데드크로스가 강함
+//   변화율 — 두 선 이격이 벌어지는지(확장) 좁아지는지(둔화) → 띠 색
+//
+// 4P 필터 (문서 8·10쪽, 기본 켜짐) — 가격 차트 위에 진입 신호를 표시합니다.
+//   1P 방향: 상위 시간봉(기본 1시간) EMA 60·120·240 정배열이면 롱만, 역배열이면 숏만
+//   2P 자리: 최근 N봉 안에 현재 차트의 EMA 60·120·240 중 하나에 닿았는가
+//   3P 신호: PPP 크로스가 "막" 났는가 (교차 직후 봉)
+//   확정   : 봉 마감 후에만 신호 확정 (알림도 봉 마감 기준)
+//
+// 사용법: TradingView → Pine 편집기 → 새로 만들기 → 인디케이터 → 이 코드 전체 붙여넣기 →
+//        저장 → "차트에 추가". 문서 권장 세팅은 1분봉 차트입니다.
+//@version=6
+indicator("PPP 재현 오실레이터 (PPP Clone)", shorttitle = "PPP≈", overlay = false, precision = 2)
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+const string T_EMA = "EMA"
+const string T_SMA = "SMA"
+
+grpCore  = "오실레이터 계산"
+rsiLen   = input.int(14, "RSI 기간", minval = 2, group = grpCore)
+stochLen = input.int(14, "스토캐스틱 기간", minval = 2, group = grpCore)
+kLen     = input.int(3, "K 스무딩 (흰 선)", minval = 1, group = grpCore)
+dLen     = input.int(3, "D 스무딩 (분홍 선)", minval = 1, group = grpCore)
+smoothT  = input.string(T_EMA, "스무딩 방식", options = [T_EMA, T_SMA], group = grpCore, tooltip = "문서가 'EMA로 추세 필터링'이라고 밝혀 EMA가 기본값입니다. SMA로 바꾸면 TradingView 기본 Stoch RSI와 같아집니다.")
+
+grpLvl = "기준선"
+obLvl  = input.float(75.0, "과매수", minval = 50, maxval = 100, group = grpLvl)
+osLvl  = input.float(25.0, "과매도", minval = 0, maxval = 50, group = grpLvl)
+
+grpFilt  = "4P 필터 (가격 차트 신호)"
+showSig  = input.bool(true, "가격 차트에 4P 진입 신호 표시", group = grpFilt)
+use1P    = input.bool(true, "1P 방향: 상위 시간봉 EMA 배열", group = grpFilt)
+htfTf    = input.timeframe("60", "1P 상위 시간봉", group = grpFilt)
+use2P    = input.bool(true, "2P 자리: 장기 EMA 터치", group = grpFilt)
+ema1Len  = input.int(60, "장기 EMA 1", minval = 1, group = grpFilt, inline = "ema")
+ema2Len  = input.int(120, "2", minval = 1, group = grpFilt, inline = "ema")
+ema3Len  = input.int(240, "3", minval = 1, group = grpFilt, inline = "ema")
+touchWin = input.int(5, "2P 터치 유효 봉 수", minval = 1, group = grpFilt, tooltip = "최근 몇 봉 안에 장기 EMA에 닿았으면 '자리'로 봅니다.")
+zoneOnly = input.bool(false, "25 이하 / 75 이상 크로스만 신호", group = grpFilt, tooltip = "끄면 문서 6쪽 표대로 25~75 구간 크로스도 2P(자리)와 겹칠 때 신호로 냅니다.")
+
+grpView  = "표시"
+kColor   = input.color(color.new(#ffffff, 0), "K (흰 선)", group = grpView)
+dColor   = input.color(color.new(#ff4f9a, 0), "D (분홍 선)", group = grpView)
+cUpExp   = input.color(color.new(#8e3b3b, 15), "강세 확장", group = grpView)
+cUpFade  = input.color(color.new(#f0a3a0, 15), "강세 유지·둔화", group = grpView)
+cDnExp   = input.color(color.new(#4f5530, 15), "약세 확장", group = grpView)
+cDnFade  = input.color(color.new(#f3e4a1, 15), "약세 유지·둔화", group = grpView)
+showDots = input.bool(true, "크로스 지점 표시 (강한 크로스는 큰 원)", group = grpView)
+
+// ─── 오실레이터 ───────────────────────────────────────────────────────────────
+
+rsi   = ta.rsi(close, rsiLen)
+hh    = ta.highest(rsi, stochLen)
+ll    = ta.lowest(rsi, stochLen)
+var float stochRsi = na
+stochRsi := hh - ll > 0 ? 100 * (rsi - ll) / (hh - ll) : nz(stochRsi[1], 50)
+// ta.* 함수는 매 봉 호출되도록 두 방식을 모두 계산한 뒤 고릅니다.
+kE    = ta.ema(stochRsi, kLen)
+kS    = ta.sma(stochRsi, kLen)
+k     = smoothT == T_EMA ? kE : kS
+dE    = ta.ema(k, dLen)
+dS    = ta.sma(k, dLen)
+d     = smoothT == T_EMA ? dE : dS
+
+gap      = k - d
+widening = math.abs(gap) > math.abs(nz(gap[1]))
+// 1 강세 확장, 2 강세 유지·둔화, 3 약세 확장, 4 약세 유지·둔화
+state    = gap >= 0 ? (widening ? 1 : 2) : (widening ? 3 : 4)
+bandCol  = state == 1 ? cUpExp : state == 2 ? cUpFade : state == 3 ? cDnExp : cDnFade
+
+gc       = ta.crossover(k, d)
+dc       = ta.crossunder(k, d)
+crossLvl = (k + d) / 2
+gcStrong = gc and crossLvl <= osLvl
+dcStrong = dc and crossLvl >= obLvl
+
+pK = plot(k, "K", kColor, 2)
+pD = plot(d, "D", dColor, 2)
+fill(pK, pD, bandCol, "띠 (가속·감속)")
+hline(obLvl, "과매수", color.new(#ffffff, 55), hline.style_dashed)
+hline(50, "중심선", color.new(#ff4f9a, 40), hline.style_solid)
+hline(osLvl, "과매도", color.new(#ffffff, 55), hline.style_dashed)
+
+plotshape(showDots and gc ? crossLvl : na, "골든크로스", shape.circle, location.absolute, color.new(#ffd400, gcStrong ? 0 : 50), size = size.tiny)
+plotshape(showDots and dc ? crossLvl : na, "데드크로스", shape.circle, location.absolute, color.new(#2ecc71, dcStrong ? 0 : 50), size = size.tiny)
+plotshape(showDots and gcStrong ? crossLvl : na, "강한 골든크로스", shape.circle, location.absolute, color.new(#ffd400, 70), size = size.small)
+plotshape(showDots and dcStrong ? crossLvl : na, "강한 데드크로스", shape.circle, location.absolute, color.new(#2ecc71, 70), size = size.small)
+
+// ─── 4P 필터 ──────────────────────────────────────────────────────────────────
+// 1P: 확정된 직전 상위 봉 기준 (리페인트 방지: [1] + lookahead_on)
+htfAlign() =>
+    h1 = ta.ema(close, ema1Len)
+    h2 = ta.ema(close, ema2Len)
+    h3 = ta.ema(close, ema3Len)
+    h1 > h2 and h2 > h3 ? 1 : h1 < h2 and h2 < h3 ? -1 : 0
+htfDir = request.security(syminfo.tickerid, htfTf, htfAlign()[1], lookahead = barmerge.lookahead_on)
+dirOkL = not use1P or htfDir == 1
+dirOkS = not use1P or htfDir == -1
+
+// 2P: 봉 범위가 EMA를 포함했고(터치) 현재 종가가 그 EMA 위(롱) / 아래(숏)
+e1 = ta.ema(close, ema1Len)
+e2 = ta.ema(close, ema2Len)
+e3 = ta.ema(close, ema3Len)
+// and/or는 지연 평가되므로 ta.barssince는 조건식 밖에서 매 봉 계산합니다.
+t1 = ta.barssince(low <= e1 and high >= e1) < touchWin
+t2 = ta.barssince(low <= e2 and high >= e2) < touchWin
+t3 = ta.barssince(low <= e3 and high >= e3) < touchWin
+zoneL = (t1 and close > e1) or (t2 and close > e2) or (t3 and close > e3)
+zoneS = (t1 and close < e1) or (t2 and close < e2) or (t3 and close < e3)
+zoneOkL = not use2P or zoneL
+zoneOkS = not use2P or zoneS
+
+// 3P: 막 난 크로스. 25~75 구간 크로스는 2P와 겹칠 때만 (문서 6쪽 표)
+sigOkL = gcStrong or (not zoneOnly and gc and use2P and zoneL)
+sigOkS = dcStrong or (not zoneOnly and dc and use2P and zoneS)
+
+longSig  = sigOkL and dirOkL and zoneOkL and barstate.isconfirmed
+shortSig = sigOkS and dirOkS and zoneOkS and barstate.isconfirmed
+
+plotshape(showSig and longSig, "4P 롱", shape.triangleup, location.belowbar, color.new(#ffd400, 0), size = size.small, text = "L", textcolor = color.new(#ffd400, 0), force_overlay = true)
+plotshape(showSig and shortSig, "4P 숏", shape.triangledown, location.abovebar, color.new(#2ecc71, 0), size = size.small, text = "S", textcolor = color.new(#2ecc71, 0), force_overlay = true)
+
+// ─── 알림 (봉 마감 시 1회로 설정하세요) ────────────────────────────────────────
+alertcondition(gc, "PPP 골든크로스", "PPP 골든크로스 {{ticker}} {{interval}}")
+alertcondition(dc, "PPP 데드크로스", "PPP 데드크로스 {{ticker}} {{interval}}")
+alertcondition(longSig, "4P 롱 신호", "4P 롱 신호 {{ticker}} {{interval}} 종가 {{close}}")
+alertcondition(shortSig, "4P 숏 신호", "4P 숏 신호 {{ticker}} {{interval}} 종가 {{close}}")

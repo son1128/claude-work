@@ -1,0 +1,148 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// PPP 4P 전략 검증용 (PPP Clone Strategy)
+// ─────────────────────────────────────────────────────────────────────────────
+// ppp-oscillator.pine과 같은 계산으로 「PPP 지표 사용 가이드」의 매매 순서를 그대로
+// 자동 매매 규칙으로 옮긴 백테스트 전용 스크립트입니다. 문서 주장(승률 90% 등)을
+// 직접 검증해 보기 위한 용도이며 매매 추천이 아닙니다.
+//
+// 진입  : 1P 방향 + 2P 자리 + 3P 막 난 크로스, 봉 마감 시 시장가 (문서 8쪽)
+// 익절  : 볼린저밴드(20, 2) 상단(롱)/하단(숏) 지정가, 또는 반대 크로스 시 종가 청산 (9쪽)
+// 손절  : 진입 근거였던 장기 EMA를 종가가 이탈(롱)/돌파(숏)하면 종가 청산 (9·10쪽)
+// 비용  : 기본 수수료 0.05% (편도, 선물 시장가 기준)
+//
+// 같은 규칙의 Python 구현(verify/ppp_core.py)으로 바이낸스 1분봉 백테스트 결과를
+// README에 정리했습니다. TradingView 결과와 비교해 보세요.
+//@version=6
+strategy("PPP 4P 전략 검증 (PPP Clone)", shorttitle = "PPP≈ 4P", overlay = true, process_orders_on_close = true, initial_capital = 10000, default_qty_type = strategy.percent_of_equity, default_qty_value = 100, commission_type = strategy.commission.percent, commission_value = 0.05, pyramiding = 0)
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+grpCore  = "오실레이터 계산"
+rsiLen   = input.int(14, "RSI 기간", minval = 2, group = grpCore)
+stochLen = input.int(14, "스토캐스틱 기간", minval = 2, group = grpCore)
+kLen     = input.int(3, "K 스무딩", minval = 1, group = grpCore)
+dLen     = input.int(3, "D 스무딩", minval = 1, group = grpCore)
+obLvl    = input.float(75.0, "과매수", group = grpCore)
+osLvl    = input.float(25.0, "과매도", group = grpCore)
+
+grpFilt  = "4P 필터"
+use1P    = input.bool(true, "1P 방향: 상위 시간봉 EMA 배열", group = grpFilt)
+htfTf    = input.timeframe("60", "1P 상위 시간봉", group = grpFilt)
+use2P    = input.bool(true, "2P 자리: 장기 EMA 터치", group = grpFilt)
+ema1Len  = input.int(60, "장기 EMA 1", minval = 1, group = grpFilt, inline = "ema")
+ema2Len  = input.int(120, "2", minval = 1, group = grpFilt, inline = "ema")
+ema3Len  = input.int(240, "3", minval = 1, group = grpFilt, inline = "ema")
+touchWin = input.int(5, "2P 터치 유효 봉 수", minval = 1, group = grpFilt)
+zoneOnly = input.bool(false, "25 이하 / 75 이상 크로스만 신호", group = grpFilt)
+
+grpExit  = "청산"
+bbLen    = input.int(20, "볼린저밴드 기간", minval = 2, group = grpExit)
+bbMult   = input.float(2.0, "볼린저밴드 배수", minval = 0.1, step = 0.1, group = grpExit)
+useTp    = input.bool(true, "볼린저밴드 지정가 익절", group = grpExit)
+useOpp   = input.bool(true, "반대 크로스 시 청산", group = grpExit)
+useStop  = input.bool(true, "장기 EMA 이탈 시 손절", group = grpExit)
+stopBuf  = input.float(0.05, "손절 여유폭 (%)", minval = 0, step = 0.01, group = grpExit)
+allowL   = input.bool(true, "롱 허용", group = grpExit, inline = "side")
+allowS   = input.bool(true, "숏 허용", group = grpExit, inline = "side")
+
+// ─── 오실레이터 (ppp-oscillator.pine과 동일) ─────────────────────────────────
+rsi = ta.rsi(close, rsiLen)
+hh  = ta.highest(rsi, stochLen)
+ll  = ta.lowest(rsi, stochLen)
+var float stochRsi = na
+stochRsi := hh - ll > 0 ? 100 * (rsi - ll) / (hh - ll) : nz(stochRsi[1], 50)
+k   = ta.ema(stochRsi, kLen)
+d   = ta.ema(k, dLen)
+
+gc       = ta.crossover(k, d)
+dc       = ta.crossunder(k, d)
+crossLvl = (k + d) / 2
+gcStrong = gc and crossLvl <= osLvl
+dcStrong = dc and crossLvl >= obLvl
+
+// ─── 4P 필터 (ppp-oscillator.pine과 동일) ────────────────────────────────────
+htfAlign() =>
+    h1 = ta.ema(close, ema1Len)
+    h2 = ta.ema(close, ema2Len)
+    h3 = ta.ema(close, ema3Len)
+    h1 > h2 and h2 > h3 ? 1 : h1 < h2 and h2 < h3 ? -1 : 0
+htfDir = request.security(syminfo.tickerid, htfTf, htfAlign()[1], lookahead = barmerge.lookahead_on)
+dirOkL = not use1P or htfDir == 1
+dirOkS = not use1P or htfDir == -1
+
+e1 = ta.ema(close, ema1Len)
+e2 = ta.ema(close, ema2Len)
+e3 = ta.ema(close, ema3Len)
+t1 = ta.barssince(low <= e1 and high >= e1) < touchWin
+t2 = ta.barssince(low <= e2 and high >= e2) < touchWin
+t3 = ta.barssince(low <= e3 and high >= e3) < touchWin
+zoneL = (t1 and close > e1) or (t2 and close > e2) or (t3 and close > e3)
+zoneS = (t1 and close < e1) or (t2 and close < e2) or (t3 and close < e3)
+zoneOkL = not use2P or zoneL
+zoneOkS = not use2P or zoneS
+
+sigOkL = gcStrong or (not zoneOnly and gc and use2P and zoneL)
+sigOkS = dcStrong or (not zoneOnly and dc and use2P and zoneS)
+longSig  = allowL and sigOkL and dirOkL and zoneOkL
+shortSig = allowS and sigOkS and dirOkS and zoneOkS
+
+// 손절 기준 EMA: 롱은 종가 아래에서 가장 가까운 터치 EMA, 숏은 종가 위에서 가장 가까운 터치 EMA.
+// 2P를 끈 경우에는 EMA 1을 씁니다.
+nearestBelow() =>
+    float best = na
+    if t1 and close > e1
+        best := e1
+    if t2 and close > e2 and (na(best) or e2 > best)
+        best := e2
+    if t3 and close > e3 and (na(best) or e3 > best)
+        best := e3
+    best
+nearestAbove() =>
+    float best = na
+    if t1 and close < e1
+        best := e1
+    if t2 and close < e2 and (na(best) or e2 < best)
+        best := e2
+    if t3 and close < e3 and (na(best) or e3 < best)
+        best := e3
+    best
+belowE = nearestBelow()
+aboveE = nearestAbove()
+var int stopIdx = 1
+emaOf(int i) =>
+    i == 1 ? e1 : i == 2 ? e2 : e3
+
+// ─── 주문 ────────────────────────────────────────────────────────────────────
+bbBasis = ta.sma(close, bbLen)
+bbDev   = bbMult * ta.stdev(close, bbLen)
+bbUp    = bbBasis + bbDev
+bbDn    = bbBasis - bbDev
+
+if strategy.position_size == 0
+    if longSig
+        stopIdx := na(belowE) ? 1 : belowE == e1 ? 1 : belowE == e2 ? 2 : 3
+        strategy.entry("L", strategy.long)
+    else if shortSig
+        stopIdx := na(aboveE) ? 1 : aboveE == e1 ? 1 : aboveE == e2 ? 2 : 3
+        strategy.entry("S", strategy.short)
+
+stopE   = emaOf(stopIdx)
+isLong  = strategy.position_size > 0 or (strategy.position_size == 0 and longSig)
+isShort = strategy.position_size < 0 or (strategy.position_size == 0 and shortSig and not longSig)
+
+if strategy.position_size > 0
+    if (useOpp and dc) or (useStop and close < stopE * (1 - stopBuf / 100))
+        strategy.close("L", comment = dc ? "반대 크로스" : "EMA 이탈")
+if strategy.position_size < 0
+    if (useOpp and gc) or (useStop and close > stopE * (1 + stopBuf / 100))
+        strategy.close("S", comment = gc ? "반대 크로스" : "EMA 돌파")
+
+if useTp
+    if isLong
+        strategy.exit("L-TP", "L", limit = bbUp, comment = "BB 익절")
+    if isShort
+        strategy.exit("S-TP", "S", limit = bbDn, comment = "BB 익절")
+
+plot(e1, "EMA 60", color.new(#ff4f9a, 30))
+plot(e2, "EMA 120", color.new(#ff4f9a, 60), style = plot.style_line)
+plot(e3, "EMA 240", color.new(#ffffff, 20), 2)
