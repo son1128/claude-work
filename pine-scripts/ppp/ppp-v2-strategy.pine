@@ -1,0 +1,202 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// PPP v2 전략 검증용 (PPP Clone v2 Strategy)
+// ─────────────────────────────────────────────────────────────────────────────
+// ppp-oscillator-v2.pine과 같은 점수로 진입하고, 사례 분석에서 나온 청산·위험 규칙을 씁니다.
+//
+// 진입 : 골든/데드크로스 + 크로스 품질 점수 ≥ 최소 점수 (봉 마감 시 시장가)
+//        선택: L1(4시간봉) 방향 일치만 허용
+// 손절 : 보호 방향에서 가장 가까운 장기 EMA ∓ 0.5 ATR (구조적 손절, 진입 시 고정)
+// 비중 : 계좌 위험 1% ÷ 손절 거리. 손절이 청산보다 먼저 오도록 최대 레버리지로 상한
+// 청산 : 1R에서 절반 익절 → 남은 절반 손절을 본전으로 → 추적 EMA(20) 종가 이탈 시 나머지 청산
+//        (사례 02 HOLO의 "목표 도달 후 되돌림", 사례 06 LSK의 "하위 추세 꺾일 때까지 보유"를 규칙화)
+//        1R 전에 96봉이 지나면 정리
+// 비용 : 기본 수수료 편도 0.075% (Gate 무기한 선물 시장가)
+//
+// 같은 규칙의 Python 구현: verify/ppp_v2.py backtest(mode="manager")
+//@version=6
+strategy("PPP v2 전략 검증 (PPP Clone v2)", shorttitle = "PPP≈ v2 전략", overlay = true, process_orders_on_close = true, initial_capital = 10000, commission_type = strategy.commission.percent, commission_value = 0.075, pyramiding = 0, margin_long = 1, margin_short = 1)
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+grpCore  = "오실레이터"
+rsiLen   = input.int(14, "RSI 기간", minval = 2, group = grpCore)
+stochLen = input.int(14, "스토캐스틱 기간", minval = 2, group = grpCore)
+kLen     = input.int(3, "K 스무딩", minval = 1, group = grpCore)
+dLen     = input.int(3, "D 스무딩", minval = 1, group = grpCore)
+obLvl    = input.float(75.0, "과매수", group = grpCore)
+osLvl    = input.float(25.0, "과매도", group = grpCore)
+
+grpSig   = "진입"
+ema1Len  = input.int(60, "EMA 1", minval = 1, group = grpSig, inline = "ema")
+ema2Len  = input.int(120, "2", minval = 1, group = grpSig, inline = "ema")
+ema3Len  = input.int(240, "3", minval = 1, group = grpSig, inline = "ema")
+l1Tf     = input.timeframe("240", "L1 시간봉", group = grpSig)
+l1Only   = input.bool(true, "L1 방향 일치만 진입", group = grpSig)
+minScore = input.int(60, "최소 점수", minval = 0, maxval = 100, group = grpSig)
+tangleK  = input.float(1.0, "꼬임 판정: EMA 폭 < ATR ×", minval = 0, step = 0.1, group = grpSig)
+divL     = input.int(5, "다이버전스 피벗 왼쪽", minval = 1, group = grpSig, inline = "dv")
+divR     = input.int(2, "오른쪽", minval = 1, group = grpSig, inline = "dv")
+divGap   = input.int(60, "두 피벗 최대 간격", minval = 5, group = grpSig)
+divWin   = input.int(10, "다이버전스 유효 봉 수", minval = 1, group = grpSig)
+
+grpRisk  = "위험·청산"
+riskPct  = input.float(1.0, "1회 계좌 위험 (%)", minval = 0.1, step = 0.1, group = grpRisk)
+mmrPct   = input.float(1.0, "유지 증거금률 (%)", minval = 0, step = 0.1, group = grpRisk)
+levCap   = input.float(10, "레버리지 상한 (배)", minval = 1, group = grpRisk)
+stopBuf  = input.float(0.5, "손절 여유폭 (ATR ×)", minval = 0, step = 0.1, group = grpRisk)
+tp1R     = input.float(1.0, "1차 익절 (R)", minval = 0.1, step = 0.1, group = grpRisk)
+tp1Pct   = input.int(50, "1차 익절 비중 (%)", minval = 1, maxval = 100, group = grpRisk)
+trailLen = input.int(20, "추적 EMA 기간", minval = 2, group = grpRisk)
+preBars  = input.int(96, "1차 익절 전 시간 손절 (봉)", minval = 1, group = grpRisk)
+maxBars  = input.int(288, "최대 보유 (봉)", minval = 1, group = grpRisk)
+
+// ─── 계산 (ppp-oscillator-v2.pine과 같음) ────────────────────────────────────
+rsi = ta.rsi(close, rsiLen)
+hh  = ta.highest(rsi, stochLen)
+ll  = ta.lowest(rsi, stochLen)
+var float stochRsi = na
+stochRsi := hh - ll > 0 ? 100 * (rsi - ll) / (hh - ll) : nz(stochRsi[1], 50)
+k  = ta.ema(stochRsi, kLen)
+d  = ta.ema(k, dLen)
+gc = ta.crossover(k, d)
+dc = ta.crossunder(k, d)
+crossLvl = (k + d) / 2
+
+e1  = ta.ema(close, ema1Len)
+e2  = ta.ema(close, ema2Len)
+e3  = ta.ema(close, ema3Len)
+atr = ta.atr(14)
+lo5 = ta.lowest(low, 5)
+hi5 = ta.highest(high, 5)
+nearL = (lo5 <= e1 + 0.5 * atr and close > e1) or (lo5 <= e2 + 0.5 * atr and close > e2) or (lo5 <= e3 + 0.5 * atr and close > e3)
+nearS = (hi5 >= e1 - 0.5 * atr and close < e1) or (hi5 >= e2 - 0.5 * atr and close < e2) or (hi5 >= e3 - 0.5 * atr and close < e3)
+tangle = math.max(e1, e2, e3) - math.min(e1, e2, e3) < tangleK * atr
+
+align3() =>
+    a1 = ta.ema(close, ema1Len)
+    a2 = ta.ema(close, ema2Len)
+    a3 = ta.ema(close, ema3Len)
+    a1 > a2 and a2 > a3 ? 1 : a1 < a2 and a2 < a3 ? -1 : 0
+l1 = request.security(syminfo.tickerid, l1Tf, align3()[1], lookahead = barmerge.lookahead_on)
+
+pl = ta.pivotlow(k, divL, divR)
+ph = ta.pivothigh(k, divL, divR)
+var float plK = na
+var float plPx = na
+var int plBar = na
+var float phK = na
+var float phPx = na
+var int phBar = na
+bullDiv = false
+bearDiv = false
+if not na(pl)
+    j = bar_index - divR
+    px = low[divR]
+    if not na(plK) and j - plBar <= divGap and px < plPx and pl > plK
+        bullDiv := true
+    plK := pl
+    plPx := px
+    plBar := j
+if not na(ph)
+    j = bar_index - divR
+    px = high[divR]
+    if not na(phK) and j - phBar <= divGap and px > phPx and ph < phK
+        bearDiv := true
+    phK := ph
+    phPx := px
+    phBar := j
+bullRecent = ta.barssince(bullDiv) <= divWin
+bearRecent = ta.barssince(bearDiv) <= divWin
+
+slope  = k - k[1]
+zoneL  = crossLvl <= osLvl ? 25 : crossLvl <= osLvl + 10 ? 12 : 0
+zoneS  = crossLvl >= obLvl ? 25 : crossLvl >= obLvl - 10 ? 12 : 0
+scoreL = math.max(0, math.min(100, zoneL + (nearL ? 25 : 0) + (l1 == 1 ? 25 : l1 == 0 ? 10 : 0) + (slope >= 5 ? 10 : 0) + (bullRecent ? 15 : 0) - (tangle ? 20 : 0)))
+scoreS = math.max(0, math.min(100, zoneS + (nearS ? 25 : 0) + (l1 == -1 ? 25 : l1 == 0 ? 10 : 0) + (slope <= -5 ? 10 : 0) + (bearRecent ? 15 : 0) - (tangle ? 20 : 0)))
+longSig  = gc and scoreL >= minScore and (not l1Only or l1 == 1)
+shortSig = dc and scoreS >= minScore and (not l1Only or l1 == -1)
+
+nearestBelow() =>
+    float b = na
+    if e1 < close
+        b := e1
+    if e2 < close and (na(b) or e2 > b)
+        b := e2
+    if e3 < close and (na(b) or e3 > b)
+        b := e3
+    na(b) ? e1 : b
+nearestAbove() =>
+    float b = na
+    if e1 > close
+        b := e1
+    if e2 > close and (na(b) or e2 < b)
+        b := e2
+    if e3 > close and (na(b) or e3 < b)
+        b := e3
+    na(b) ? e1 : b
+stopL = nearestBelow() - stopBuf * atr
+stopS = nearestAbove() + stopBuf * atr
+trail = ta.ema(close, trailLen)
+
+// ─── 주문 ────────────────────────────────────────────────────────────────────
+var float entryPx = na
+var float curStop = na
+var float tp1Px   = na
+var float initQty = na
+var int   entryBar = na
+
+sizeFor(float px, float stop) =>
+    dist = math.abs(px - stop) / px
+    maxLev = math.min(levCap, 0.8 / (dist + mmrPct / 100))      // 손절이 청산보다 먼저 오게
+    notional = math.min(strategy.equity * riskPct / 100 / dist, strategy.equity * maxLev)
+    notional / px
+
+if strategy.position_size == 0
+    if longSig and close > stopL
+        entryPx := close
+        curStop := stopL
+        tp1Px := close + tp1R * (close - stopL)
+        initQty := sizeFor(close, stopL)
+        entryBar := bar_index
+        strategy.entry("L", strategy.long, qty = initQty)
+    else if shortSig and close < stopS
+        entryPx := close
+        curStop := stopS
+        tp1Px := close - tp1R * (stopS - close)
+        initQty := sizeFor(close, stopS)
+        entryBar := bar_index
+        strategy.entry("S", strategy.short, qty = initQty)
+
+posAbs = math.abs(strategy.position_size)
+gotTp1 = strategy.position_size != 0 and posAbs < initQty * 0.99
+if gotTp1
+    curStop := entryPx                                                // 본전 이동
+held = na(entryBar) ? 0 : bar_index - entryBar
+
+if strategy.position_size > 0
+    if gotTp1 and close < trail
+        strategy.close("L", comment = "추적 청산")
+    else if (not gotTp1 and held >= preBars) or held >= maxBars
+        strategy.close("L", comment = "시간")
+if strategy.position_size < 0
+    if gotTp1 and close > trail
+        strategy.close("S", comment = "추적 청산")
+    else if (not gotTp1 and held >= preBars) or held >= maxBars
+        strategy.close("S", comment = "시간")
+
+isLong  = strategy.position_size > 0 or (strategy.position_size == 0 and longSig and close > stopL)
+isShort = strategy.position_size < 0 or (strategy.position_size == 0 and shortSig and close < stopS and not (longSig and close > stopL))
+if isLong
+    if not gotTp1
+        strategy.exit("L-TP1", "L", qty_percent = tp1Pct, limit = tp1Px, stop = curStop, comment_profit = "1차 익절", comment_loss = "손절")
+    strategy.exit("L-SL", "L", stop = curStop, comment = gotTp1 ? "본전" : "손절")
+if isShort
+    if not gotTp1
+        strategy.exit("S-TP1", "S", qty_percent = tp1Pct, limit = tp1Px, stop = curStop, comment_profit = "1차 익절", comment_loss = "손절")
+    strategy.exit("S-SL", "S", stop = curStop, comment = gotTp1 ? "본전" : "손절")
+
+plot(e1, "EMA 1", color.new(#ff4f9a, 30))
+plot(e2, "EMA 2", color.new(#b388ff, 30))
+plot(e3, "EMA 3", color.new(#ffffff, 20), 2)
+plot(strategy.position_size != 0 ? curStop : na, "현재 손절", color.new(#ff5252, 0), 1, plot.style_linebr)
+plot(strategy.position_size != 0 and not gotTp1 ? tp1Px : na, "1차 익절", color.new(#69f0ae, 0), 1, plot.style_linebr)

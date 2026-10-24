@@ -40,7 +40,7 @@ Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`
 | Script | Description |
 | --- | --- |
 | [`pine-scripts/buy-sell-volume.pine`](pine-scripts/buy-sell-volume.pine) | Buy/sell volume split ([guide](pine-scripts/README.md)) |
-| [`pine-scripts/ppp/`](pine-scripts/ppp/README.md) | PPP oscillator clone + 4P strategy, with a Python port and Binance 1m backtest in `verify/` (reports: [`reports/ppp-indicator-report.html`](reports/ppp-indicator-report.html), [`reports/ppp-2.0-plan.html`](reports/ppp-2.0-plan.html)) |
+| [`pine-scripts/ppp/`](pine-scripts/ppp/README.md) | PPP oscillator clone (v1, v2) + strategies, with a Python port, backtests and a case audit on real futures data in `verify/` (reports: [`reports/ppp-indicator-report.html`](reports/ppp-indicator-report.html), [`reports/ppp-2.0-plan.html`](reports/ppp-2.0-plan.html), [`reports/ppp-case-audit.html`](reports/ppp-case-audit.html)) |
 
 ## Firestore rules
 

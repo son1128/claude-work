@@ -1,0 +1,336 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// PPP v2 오실레이터 (PPP Clone v2)
+// ─────────────────────────────────────────────────────────────────────────────
+// v1(ppp-oscillator.pine)의 K/D 계산은 그대로 두고, 「PPP 타점 사례 모음집」 10건을
+// 실제 시세로 되짚어 본 결과를 반영해 다음을 더했습니다.
+//
+//   1. 다중 시간봉 표   — 5분·15분·1시간·4시간·일봉의 EMA 배열과 PPP 상태를 한눈에
+//                        (사례 10건 중 4건이 1시간봉 방향과 반대로 진입)
+//   2. L1 방향 리본     — 상위 시간봉(기본 4시간) EMA 60·120·240 배열을 지표 창 배경색으로
+//   3. 크로스 품질 점수 — 구간·장기 이평 근접·L1 방향·K 기울기·다이버전스·꼬임 감점 (0~100)
+//   4. 다이버전스       — 가격과 K의 피벗 비교 (사례 05 BEAT)
+//   5. 위험 점검 표     — 구조적 손절가, 손절 거리, 레버리지별 청산 거리, 최대 레버리지
+//                        (사례 4건에서 문서의 손절 기준이 청산가보다 멀었음)
+//   6. 가격 차트 표시   — 장기 EMA(꼬임 구간은 회색), 상위 시간봉 EMA, 이평 반응 라벨
+//   7. JSON 알림        — 봉 마감 확정 후 점수·손절가를 담아 전송
+//
+// 같은 정의의 Python 구현: verify/ppp_v2.py
+// 원본 PPP 지표는 비공개라 계산식은 추정입니다. 매매 추천이 아닙니다.
+//@version=6
+indicator("PPP v2 오실레이터 (PPP Clone v2)", shorttitle = "PPP≈ v2", overlay = false, precision = 2, max_labels_count = 300)
+
+// ─── 입력값 ──────────────────────────────────────────────────────────────────
+const string T_EMA = "EMA"
+const string T_SMA = "SMA"
+
+grpCore  = "오실레이터 계산 (v1과 같음)"
+rsiLen   = input.int(14, "RSI 기간", minval = 2, group = grpCore)
+stochLen = input.int(14, "스토캐스틱 기간", minval = 2, group = grpCore)
+kLen     = input.int(3, "K 스무딩 (흰 선)", minval = 1, group = grpCore)
+dLen     = input.int(3, "D 스무딩 (분홍 선)", minval = 1, group = grpCore)
+smoothT  = input.string(T_EMA, "스무딩 방식", options = [T_EMA, T_SMA], group = grpCore)
+obLvl    = input.float(75.0, "과매수", minval = 50, maxval = 100, group = grpCore)
+osLvl    = input.float(25.0, "과매도", minval = 0, maxval = 50, group = grpCore)
+
+grpMa    = "장기 이평"
+ema1Len  = input.int(60, "EMA 1", minval = 1, group = grpMa, inline = "ema")
+ema2Len  = input.int(120, "2", minval = 1, group = grpMa, inline = "ema")
+ema3Len  = input.int(240, "3", minval = 1, group = grpMa, inline = "ema")
+tangleK  = input.float(1.0, "꼬임 판정: EMA 폭 < ATR ×", minval = 0, step = 0.1, group = grpMa)
+
+grpL1    = "L1 방향 (상위 시간봉)"
+l1Tf     = input.timeframe("240", "L1 시간봉", group = grpL1)
+showRib  = input.bool(true, "지표 창 배경에 L1 방향 표시", group = grpL1)
+
+grpMtf   = "다중 시간봉 표"
+showMtf  = input.bool(true, "표 표시", group = grpMtf)
+tfA      = input.timeframe("5", "시간봉 1", group = grpMtf, inline = "t1")
+tfB      = input.timeframe("15", "2", group = grpMtf, inline = "t1")
+tfC      = input.timeframe("60", "3", group = grpMtf, inline = "t2")
+tfD      = input.timeframe("240", "4", group = grpMtf, inline = "t2")
+tfE      = input.timeframe("D", "5", group = grpMtf, inline = "t2")
+
+grpScore = "크로스 품질 점수"
+minScore = input.int(60, "신호 최소 점수", minval = 0, maxval = 100, group = grpScore, tooltip = "검증 결과 점수 구간별 성과 차이는 뚜렷하지 않았습니다. 점검표로 쓰세요.")
+l1Gate   = input.bool(true, "L1 방향과 같을 때만 신호", group = grpScore, tooltip = "검증에서 일관되게 도움이 된 유일한 조건입니다 (E8, E12).")
+showScr  = input.bool(true, "크로스마다 점수 표시", group = grpScore)
+divL     = input.int(5, "다이버전스 피벗 왼쪽", minval = 1, group = grpScore, inline = "dv")
+divR     = input.int(2, "오른쪽", minval = 1, group = grpScore, inline = "dv")
+divGap   = input.int(60, "두 피벗 최대 간격 (봉)", minval = 5, group = grpScore)
+divWin   = input.int(10, "다이버전스 유효 봉 수", minval = 1, group = grpScore)
+
+grpRisk  = "위험 점검"
+showRisk = input.bool(true, "위험 점검 표 표시", group = grpRisk)
+lev      = input.float(20, "사용 레버리지 (배)", minval = 1, maxval = 200, group = grpRisk)
+mmrPct   = input.float(1.0, "유지 증거금률 (%)", minval = 0, step = 0.1, group = grpRisk, tooltip = "거래소·종목마다 다릅니다. Gate 알트 무기한 선물은 보통 0.5~1%입니다.")
+feePct   = input.float(0.075, "시장가 수수료 (편도 %)", minval = 0, step = 0.005, group = grpRisk)
+riskPct  = input.float(1.0, "1회 계좌 위험 (%)", minval = 0.1, step = 0.1, group = grpRisk)
+stopBuf  = input.float(0.5, "손절 여유폭 (ATR ×)", minval = 0, step = 0.1, group = grpRisk)
+
+grpView  = "표시"
+showPx   = input.bool(true, "가격 차트에 EMA·신호·반응 라벨 표시", group = grpView)
+showHtf  = input.bool(true, "가격 차트에 L1 시간봉 EMA 표시", group = grpView)
+kColor   = input.color(color.new(#ffffff, 0), "K (흰 선)", group = grpView)
+dColor   = input.color(color.new(#ff4f9a, 0), "D (분홍 선)", group = grpView)
+cUpExp   = input.color(color.new(#8e3b3b, 15), "강세 확장", group = grpView)
+cUpFade  = input.color(color.new(#f0a3a0, 15), "강세 유지·둔화", group = grpView)
+cDnExp   = input.color(color.new(#4f5530, 15), "약세 확장", group = grpView)
+cDnFade  = input.color(color.new(#f3e4a1, 15), "약세 유지·둔화", group = grpView)
+
+// ─── 오실레이터 (v1과 같음) ───────────────────────────────────────────────────
+rsi = ta.rsi(close, rsiLen)
+hh  = ta.highest(rsi, stochLen)
+ll  = ta.lowest(rsi, stochLen)
+var float stochRsi = na
+stochRsi := hh - ll > 0 ? 100 * (rsi - ll) / (hh - ll) : nz(stochRsi[1], 50)
+kE = ta.ema(stochRsi, kLen)
+kS = ta.sma(stochRsi, kLen)
+k  = smoothT == T_EMA ? kE : kS
+dE = ta.ema(k, dLen)
+dS = ta.sma(k, dLen)
+d  = smoothT == T_EMA ? dE : dS
+
+gap      = k - d
+widening = math.abs(gap) > math.abs(nz(gap[1]))
+state    = gap >= 0 ? (widening ? 1 : 2) : (widening ? 3 : 4)
+bandCol  = state == 1 ? cUpExp : state == 2 ? cUpFade : state == 3 ? cDnExp : cDnFade
+gc       = ta.crossover(k, d)
+dc       = ta.crossunder(k, d)
+crossLvl = (k + d) / 2
+
+// ─── 장기 이평·ATR·꼬임 ─────────────────────────────────────────────────────
+e1  = ta.ema(close, ema1Len)
+e2  = ta.ema(close, ema2Len)
+e3  = ta.ema(close, ema3Len)
+atr = ta.atr(14)
+lo5 = ta.lowest(low, 5)
+hi5 = ta.highest(high, 5)
+nearL = (lo5 <= e1 + 0.5 * atr and close > e1) or (lo5 <= e2 + 0.5 * atr and close > e2) or (lo5 <= e3 + 0.5 * atr and close > e3)
+nearS = (hi5 >= e1 - 0.5 * atr and close < e1) or (hi5 >= e2 - 0.5 * atr and close < e2) or (hi5 >= e3 - 0.5 * atr and close < e3)
+spread = math.max(e1, e2, e3) - math.min(e1, e2, e3)
+tangle = spread < tangleK * atr
+
+// ─── L1 방향 (직전 확정 상위 봉, 리페인트 방지) ───────────────────────────────
+align3() =>
+    a1 = ta.ema(close, ema1Len)
+    a2 = ta.ema(close, ema2Len)
+    a3 = ta.ema(close, ema3Len)
+    a1 > a2 and a2 > a3 ? 1 : a1 < a2 and a2 < a3 ? -1 : 0
+l1 = request.security(syminfo.tickerid, l1Tf, align3()[1], lookahead = barmerge.lookahead_on)
+bgcolor(showRib ? (l1 == 1 ? color.new(#2e7d32, 88) : l1 == -1 ? color.new(#c62828, 88) : na) : na, title = "L1 방향")
+
+// ─── 다이버전스 (가격 vs K, 피벗 확정 후) ─────────────────────────────────────
+pl = ta.pivotlow(k, divL, divR)
+ph = ta.pivothigh(k, divL, divR)
+var float plK = na
+var float plPx = na
+var int plBar = na
+var float phK = na
+var float phPx = na
+var int phBar = na
+bullDiv = false
+bearDiv = false
+if not na(pl)
+    j = bar_index - divR
+    px = low[divR]
+    if not na(plK) and j - plBar <= divGap and px < plPx and pl > plK
+        bullDiv := true
+    plK := pl
+    plPx := px
+    plBar := j
+if not na(ph)
+    j = bar_index - divR
+    px = high[divR]
+    if not na(phK) and j - phBar <= divGap and px > phPx and ph < phK
+        bearDiv := true
+    phK := ph
+    phPx := px
+    phBar := j
+bullRecent = ta.barssince(bullDiv) <= divWin
+bearRecent = ta.barssince(bearDiv) <= divWin
+
+// ─── 크로스 품질 점수 (verify/ppp_v2.py features()와 같은 정의) ──────────────
+slope  = k - k[1]
+zoneL  = crossLvl <= osLvl ? 25 : crossLvl <= osLvl + 10 ? 12 : 0
+zoneS  = crossLvl >= obLvl ? 25 : crossLvl >= obLvl - 10 ? 12 : 0
+scoreL = math.max(0, math.min(100, zoneL + (nearL ? 25 : 0) + (l1 == 1 ? 25 : l1 == 0 ? 10 : 0) + (slope >= 5 ? 10 : 0) + (bullRecent ? 15 : 0) - (tangle ? 20 : 0)))
+scoreS = math.max(0, math.min(100, zoneS + (nearS ? 25 : 0) + (l1 == -1 ? 25 : l1 == 0 ? 10 : 0) + (slope <= -5 ? 10 : 0) + (bearRecent ? 15 : 0) - (tangle ? 20 : 0)))
+longSig  = gc and scoreL >= minScore and (not l1Gate or l1 == 1) and barstate.isconfirmed
+shortSig = dc and scoreS >= minScore and (not l1Gate or l1 == -1) and barstate.isconfirmed
+
+// ─── 지표 창 그리기 ──────────────────────────────────────────────────────────
+pK = plot(k, "K", kColor, 2)
+pD = plot(d, "D", dColor, 2)
+fill(pK, pD, bandCol, "띠 (가속·감속)")
+hline(obLvl, "과매수", color.new(#ffffff, 55), hline.style_dashed)
+hline(50, "중심선", color.new(#ff4f9a, 40), hline.style_solid)
+hline(osLvl, "과매도", color.new(#ffffff, 55), hline.style_dashed)
+plotshape(gc ? crossLvl : na, "골든크로스", shape.circle, location.absolute, color.new(#ffd400, longSig ? 0 : 60), size = size.tiny)
+plotshape(dc ? crossLvl : na, "데드크로스", shape.circle, location.absolute, color.new(#2ecc71, shortSig ? 0 : 60), size = size.tiny)
+plotshape(bullDiv ? k[divR] : na, "상승 다이버전스", shape.triangleup, location.absolute, color.new(#40c4ff, 0), offset = -divR, size = size.tiny)
+plotshape(bearDiv ? k[divR] : na, "하락 다이버전스", shape.triangledown, location.absolute, color.new(#ff9100, 0), offset = -divR, size = size.tiny)
+if showScr and barstate.isconfirmed and (gc or dc)
+    sc = gc ? scoreL : scoreS
+    label.new(bar_index, gc ? crossLvl - 8 : crossLvl + 8, str.tostring(sc), style = label.style_none, textcolor = sc >= minScore ? (gc ? color.new(#ffd400, 0) : color.new(#2ecc71, 0)) : color.new(#9e9e9e, 0), size = size.small)
+
+// ─── 가격 차트 표시 ──────────────────────────────────────────────────────────
+tangleCol = color.new(#9e9e9e, 30)
+plot(showPx ? e1 : na, "EMA 1", tangle ? tangleCol : color.new(#ff4f9a, 20), 1, force_overlay = true)
+plot(showPx ? e2 : na, "EMA 2", tangle ? tangleCol : color.new(#b388ff, 20), 1, force_overlay = true)
+plot(showPx ? e3 : na, "EMA 3", tangle ? tangleCol : color.new(#ffffff, 10), 2, force_overlay = true)
+h1 = request.security(syminfo.tickerid, l1Tf, ta.ema(close, ema1Len)[1], lookahead = barmerge.lookahead_on)
+h2 = request.security(syminfo.tickerid, l1Tf, ta.ema(close, ema2Len)[1], lookahead = barmerge.lookahead_on)
+h3 = request.security(syminfo.tickerid, l1Tf, ta.ema(close, ema3Len)[1], lookahead = barmerge.lookahead_on)
+plot(showHtf ? h1 : na, "L1 EMA 1", color.new(#ff4f9a, 50), 2, plot.style_stepline, force_overlay = true)
+plot(showHtf ? h2 : na, "L1 EMA 2", color.new(#b388ff, 50), 2, plot.style_stepline, force_overlay = true)
+plot(showHtf ? h3 : na, "L1 EMA 3", color.new(#ffffff, 40), 3, plot.style_stepline, force_overlay = true)
+plotshape(showPx and longSig, "v2 롱 신호", shape.triangleup, location.belowbar, color.new(#ffd400, 0), size = size.small, text = "L", textcolor = color.new(#ffd400, 0), force_overlay = true)
+plotshape(showPx and shortSig, "v2 숏 신호", shape.triangledown, location.abovebar, color.new(#2ecc71, 0), size = size.small, text = "S", textcolor = color.new(#2ecc71, 0), force_overlay = true)
+
+// 이평 반응 라벨 (요약서 7쪽의 4가지 반응 중 ①③④를 판별, ②는 ③ 이후 상태라 생략)
+wickL(float e) =>
+    low <= e - 0.5 * atr and close > e and math.min(open, close) - low >= 2 * math.abs(close - open)
+wickS(float e) =>
+    high >= e + 0.5 * atr and close < e and high - math.max(open, close) >= 2 * math.abs(close - open)
+sliceDn(float e) =>
+    close[1] > e[1] and close < e - 0.5 * atr and open - close > 1.5 * atr
+sliceUp(float e) =>
+    close[1] < e[1] and close > e + 0.5 * atr and close - open > 1.5 * atr
+holdBreak(float e) =>
+    cnt = math.sum(close > e and low <= e + 0.5 * atr ? 1 : 0, 6)
+    comp = ta.atr(5) < 0.7 * ta.atr(20)
+    cnt[1] == 6 and comp[1] and close > ta.highest(high, 6)[1]
+w1L = wickL(e1)
+w2L = wickL(e2)
+w3L = wickL(e3)
+w1S = wickS(e1)
+w2S = wickS(e2)
+w3S = wickS(e3)
+s1D = sliceDn(e1)
+s2D = sliceDn(e2)
+s3D = sliceDn(e3)
+s1U = sliceUp(e1)
+s2U = sliceUp(e2)
+s3U = sliceUp(e3)
+b1 = holdBreak(e1)
+b2 = holdBreak(e2)
+b3 = holdBreak(e3)
+plotshape(showPx and barstate.isconfirmed and (w1L or w2L or w3L), "④ 아래꼬리 되돌림", shape.labelup, location.belowbar, color.new(#40c4ff, 30), text = "④", textcolor = color.white, size = size.tiny, force_overlay = true)
+plotshape(showPx and barstate.isconfirmed and (w1S or w2S or w3S), "④ 위꼬리 되돌림", shape.labeldown, location.abovebar, color.new(#ff9100, 30), text = "④", textcolor = color.white, size = size.tiny, force_overlay = true)
+plotshape(showPx and barstate.isconfirmed and (s1D or s2D or s3D or s1U or s2U or s3U), "③ 관통 (매매 안 함)", shape.xcross, location.abovebar, color.new(#9e9e9e, 0), text = "③", size = size.tiny, force_overlay = true)
+plotshape(showPx and barstate.isconfirmed and (b1 or b2 or b3), "① 지지·응축 후 돌파", shape.labelup, location.belowbar, color.new(#2e7d32, 30), text = "①", textcolor = color.white, size = size.tiny, force_overlay = true)
+
+// ─── 다중 시간봉 정보 ────────────────────────────────────────────────────────
+mtfInfo() =>
+    r   = ta.rsi(close, rsiLen)
+    rh  = ta.highest(r, stochLen)
+    rl  = ta.lowest(r, stochLen)
+    st  = rh - rl > 0 ? 100 * (r - rl) / (rh - rl) : 50.0
+    kk  = ta.ema(st, kLen)
+    dd  = ta.ema(kk, dLen)
+    m1  = ta.ema(close, ema1Len)
+    m2  = ta.ema(close, ema2Len)
+    m3  = ta.ema(close, ema3Len)
+    al  = m1 > m2 and m2 > m3 ? 1 : m1 < m2 and m2 < m3 ? -1 : 0
+    [al[1], kk[1], dd[1]]
+[aA, kA, dA] = request.security(syminfo.tickerid, tfA, mtfInfo(), lookahead = barmerge.lookahead_on)
+[aB, kB, dB] = request.security(syminfo.tickerid, tfB, mtfInfo(), lookahead = barmerge.lookahead_on)
+[aC, kC, dC] = request.security(syminfo.tickerid, tfC, mtfInfo(), lookahead = barmerge.lookahead_on)
+[aD, kD, dD] = request.security(syminfo.tickerid, tfD, mtfInfo(), lookahead = barmerge.lookahead_on)
+[aE, kE2, dE2] = request.security(syminfo.tickerid, tfE, mtfInfo(), lookahead = barmerge.lookahead_on)
+
+alignTxt(int a) =>
+    a == 1 ? "정배열" : a == -1 ? "역배열" : "중립"
+alignCol(int a) =>
+    a == 1 ? color.new(#2e7d32, 20) : a == -1 ? color.new(#c62828, 20) : color.new(#616161, 20)
+pppTxt(float kk, float dd) =>
+    na(kk) ? "-" : (kk >= dd ? "▲ " : "▼ ") + str.tostring(math.round(kk)) + (kk >= obLvl ? " 과매수" : kk <= osLvl ? " 과매도" : "")
+tfTxt(string tf) =>
+    sec = timeframe.in_seconds(tf)
+    sec >= 604800 ? "주봉" : sec >= 86400 ? "일봉" : sec >= 3600 ? str.tostring(sec / 3600) + "시간" : str.tostring(sec / 60) + "분"
+
+var table mtf = table.new(position.top_right, 3, 6, bgcolor = color.new(#000000, 30), border_width = 1)
+if showMtf and barstate.islast
+    table.cell(mtf, 0, 0, "시간봉", text_color = color.white, text_size = size.small)
+    table.cell(mtf, 1, 0, "EMA 배열", text_color = color.white, text_size = size.small)
+    table.cell(mtf, 2, 0, "PPP", text_color = color.white, text_size = size.small)
+    tfs = array.from(tfA, tfB, tfC, tfD, tfE)
+    als = array.from(aA, aB, aC, aD, aE)
+    ks  = array.from(kA, kB, kC, kD, kE2)
+    ds  = array.from(dA, dB, dC, dD, dE2)
+    for i = 0 to 4
+        a = array.get(als, i)
+        table.cell(mtf, 0, i + 1, tfTxt(array.get(tfs, i)), text_color = color.white, text_size = size.small)
+        table.cell(mtf, 1, i + 1, alignTxt(a), bgcolor = alignCol(a), text_color = color.white, text_size = size.small)
+        table.cell(mtf, 2, i + 1, pppTxt(array.get(ks, i), array.get(ds, i)), text_color = color.white, text_size = size.small)
+
+// ─── 위험 점검 (구조적 손절 vs 레버리지 청산) ────────────────────────────────
+nearestBelow() =>
+    float b = na
+    if e1 < close
+        b := e1
+    if e2 < close and (na(b) or e2 > b)
+        b := e2
+    if e3 < close and (na(b) or e3 > b)
+        b := e3
+    na(b) ? e1 : b
+nearestAbove() =>
+    float b = na
+    if e1 > close
+        b := e1
+    if e2 > close and (na(b) or e2 < b)
+        b := e2
+    if e3 > close and (na(b) or e3 < b)
+        b := e3
+    na(b) ? e1 : b
+stopL  = nearestBelow() - stopBuf * atr
+stopS  = nearestAbove() + stopBuf * atr
+distL  = (close - stopL) / close * 100
+distS  = (stopS - close) / close * 100
+liqD   = math.max(0, 100 / lev - mmrPct)
+maxLevL = distL > 0 ? 0.8 * 100 / (distL + mmrPct) : na
+maxLevS = distS > 0 ? 0.8 * 100 / (distS + mmrPct) : na
+riskLevL = distL > 0 ? riskPct / distL : na
+riskLevS = distS > 0 ? riskPct / distS : na
+feeRoe = 2 * feePct * lev
+
+fmt(float v, int dec) =>
+    na(v) ? "-" : str.tostring(v, dec == 1 ? "#.#" : dec == 2 ? "#.##" : "#.####")
+okCol(float dist) =>
+    dist > liqD ? color.new(#c62828, 10) : color.new(#2e7d32, 30)
+
+var table risk = table.new(position.bottom_right, 3, 7, bgcolor = color.new(#000000, 30), border_width = 1)
+if showRisk and barstate.islast
+    table.cell(risk, 0, 0, str.tostring(lev) + "배 기준", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 0, "롱", text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 0, "숏", text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 1, "구조적 손절가", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 1, str.tostring(stopL, format.mintick), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 1, str.tostring(stopS, format.mintick), text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 2, "손절 거리 %", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 2, fmt(distL, 2), bgcolor = okCol(distL), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 2, fmt(distS, 2), bgcolor = okCol(distS), text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 3, "청산 거리 %", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 3, fmt(liqD, 2), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 3, fmt(liqD, 2), text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 4, "손절이 먼저 오는 최대 배수", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 4, fmt(maxLevL, 1), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 4, fmt(maxLevS, 1), text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 5, "계좌 " + str.tostring(riskPct) + "% 위험 배수", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 5, fmt(riskLevL, 1), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 5, fmt(riskLevS, 1), text_color = color.white, text_size = size.small)
+    table.cell(risk, 0, 6, "왕복 수수료 (증거금 %)", text_color = color.white, text_size = size.small)
+    table.cell(risk, 1, 6, fmt(feeRoe, 2), text_color = color.white, text_size = size.small)
+    table.cell(risk, 2, 6, fmt(feeRoe, 2), text_color = color.white, text_size = size.small)
+
+// ─── 알림 ────────────────────────────────────────────────────────────────────
+// "알림 생성 → 조건: 이 지표 → Any alert() function call" 로 걸면 아래 JSON이 전송됩니다.
+jsonMsg(string side, float score, float stop) =>
+    '{"symbol":"' + syminfo.ticker + '","tf":"' + timeframe.period + '","side":"' + side + '","score":' + str.tostring(score) + ',"price":' + str.tostring(close) + ',"stop":' + str.tostring(stop) + ',"l1":' + str.tostring(l1) + '}'
+if longSig
+    alert(jsonMsg("long", scoreL, stopL), alert.freq_once_per_bar_close)
+if shortSig
+    alert(jsonMsg("short", scoreS, stopS), alert.freq_once_per_bar_close)
+alertcondition(longSig, "v2 롱 신호", "PPP v2 롱 {{ticker}} {{interval}} 종가 {{close}}")
+alertcondition(shortSig, "v2 숏 신호", "PPP v2 숏 {{ticker}} {{interval}} 종가 {{close}}")

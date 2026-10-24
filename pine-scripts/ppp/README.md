@@ -99,6 +99,31 @@ RSI(14) → RSI의 스토캐스틱(14) → EMA(3) = K(흰 선) → EMA(3) = D(�
 
 Pine 코드 두 개는 [pynescript](https://pypi.org/project/pynescript/) 파서로 문법 검사를 통과했습니다. 이 검사는 TradingView 컴파일러가 아니라서 타입 오류까지 잡지는 못합니다. TradingView에서 처음 붙여넣을 때 오류가 나면 콘솔의 줄 번호를 확인하세요.
 
+## PPP v2 (사례 검증 반영)
+
+「PPP 타점 사례 모음집」 10건을 BingX·Gate 실제 선물 시세로 되짚어 본 뒤 만든 개선판입니다. 보고서: [`reports/ppp-case-audit.html`](../../reports/ppp-case-audit.html)
+
+| 파일 | 내용 |
+|---|---|
+| [`ppp-oscillator-v2.pine`](ppp-oscillator-v2.pine) | v1 계산 + 다중 시간봉 표, L1(4시간) 방향 배경, 크로스 품질 점수, 다이버전스, 위험 점검 표(손절 vs 청산), 이평 반응 라벨(①③④), JSON 알림 |
+| [`ppp-v2-strategy.pine`](ppp-v2-strategy.pine) | 점수·L1 일치 진입, 구조적 손절, 계좌 1% 위험 비중(청산보다 손절이 먼저 오도록 상한), 1R 절반 익절 → 본전 → EMA20 추적 청산 |
+| [`verify/ppp_v2.py`](verify/ppp_v2.py) | 위 두 파일과 같은 정의의 Python 구현 |
+| [`verify/case_audit.py`](verify/case_audit.py) | 사례 진입·청산 위치 찾기, PPP·이평·상위 시간봉 상태, 손절 vs 청산, 같은 조건 기저율 → `case_audit.json` |
+| [`verify/case_charts.py`](verify/case_charts.py) | 사례를 실제 시세로 다시 그린 그림 → `images/cases/` |
+| [`verify/explore_v3.py`](verify/explore_v3.py) | 개선안 검증 E9~E14 → `explore_v3.json` |
+| [`verify/exch_data.py`](verify/exch_data.py) | BingX·Gate 무기한 선물 시세 다운로드 |
+
+주요 결과
+- 사례 수익률은 모두 레버리지 × 가격 변동(1.9~18.7%)이고, 4건은 문서의 손절 기준보다 청산가가 가깝습니다.
+- 같은 코인·같은 시간봉에서 같은 조건을 반복하면 1,463회 중 승률 20%, 증거금 대비 평균 −5.2%, 청산 67회였습니다.
+- 4시간봉 방향 일치와 분할·본전·추적 청산은 도움이 됐고, 크로스 품질 점수와 다이버전스는 무작위 진입보다 나은 성과를 가려내지 못했습니다. 그래서 v2는 L1 일치를 기본 조건으로 두고, 점수는 점검표로 씁니다.
+
+```
+python case_audit.py cache out
+python case_charts.py cache out/case_audit.json out/cases
+python explore_v3.py data5 alts out     # alts/<SYM>_5m.csv 는 exch_data.bingx(...)로 받기
+```
+
 ## PPP 2.0 탐색 실험
 
 `verify/explore_v2.py`는 「PPP 스캘핑 매매법 핵심 요약서」를 함께 분석하면서 돌린 실험 E1~E8입니다. 결과는 `verify/explore_v2.json`, 설계와 개발 계획은 [`reports/ppp-2.0-plan.html`](../../reports/ppp-2.0-plan.html)에 있습니다.

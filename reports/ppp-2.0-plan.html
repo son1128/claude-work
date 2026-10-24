@@ -127,6 +127,7 @@ pre.code{margin:14px 0;overflow:auto;background:var(--code-bg);color:var(--code-
     <li><a href="#roadmap">개발 로드맵</a></li>
     <li><a href="#quality">검증 체계</a></li>
     <li><a href="#risk">리스크와 규제</a></li>
+    <li><a href="#cases">사례 검증 반영</a></li>
     <li><a href="#next">바로 할 일</a></li>
   </ol>
 </nav>
@@ -414,13 +415,13 @@ flowchart LR
       <div class="gate"><b>통과 기준</b> 비용 후 검증 구간 포트폴리오 샤프 0.8 이상, 최대 낙폭 25% 이하, 검증 구간 60% 이상에서 플러스, 설정 ±25% 바꿔도 샤프 70% 유지</div></div></div>
     <div class="phase"><div class="when"><b>단계 3</b>3주</div><div><h4>L3 구역 + L4 실행 연구</h4>
       <ul><li>4가지 반응 판별기, 다중 시간대 구역 겹침 계산</li><li>PPP v2 점수와 지정가 우선 실행 시뮬레이션</li><li>L5 후보 특징 무작위 대조 실험</li></ul>
-      <div class="gate"><b>통과 기준</b> 4시간봉 종가 대비 체결가 개선이 추가 비용의 1.5배 이상이고 부트스트랩 신뢰구간이 0을 포함하지 않음, 지정가 체결률 60% 이상. 미달이면 L4는 단순 지정가로 대체</div></div></div>
+      <div class="gate"><b>통과 기준</b> 4시간봉 종가 대비 체결가 개선이 추가 비용의 1.5배 이상이고 부트스트랩 신뢰구간이 0을 포함하지 않음, 지정가 체결률 60% 이상, 같은 조건(L1 방향·구역)의 무작위 진입보다 나을 것. 미달이면 L4는 단순 지정가로 대체</div></div></div>
     <div class="phase"><div class="when"><b>단계 4</b>2주</div><div><h4>도구 개발</h4>
       <ul><li>Pine v2: 오실레이터, 방향 리본, 반응 라벨, 웹훅 알림</li><li>레이더 2.0 웹, 텔레그램 알림, 매매일지</li></ul>
       <div class="gate"><b>통과 기준</b> 레이더 값과 연구 라이브러리 값 일치, 알림 지연 1분 이내</div></div></div>
     <div class="phase"><div class="when"><b>단계 5</b>8주</div><div><h4>모의 매매</h4>
       <ul><li>거래소 테스트넷 또는 소액 없는 모의 계좌</li><li>위험 관리·비상 정지·포지션 대조 운영 시험</li></ul>
-      <div class="gate"><b>통과 기준</b> 실제 체결과 백테스트 차이가 모델 슬리피지의 2배 이내, 운영 사고 0건, 손실 한도 규칙 위반 0건</div></div></div>
+      <div class="gate"><b>통과 기준</b> 실제 체결과 백테스트 차이가 모델 슬리피지의 2배 이내, 운영 사고 0건, 손실 한도 규칙 위반 0건, 손절가가 청산가보다 먼 주문 0건</div></div></div>
     <div class="phase"><div class="when"><b>단계 6</b>12주</div><div><h4>소액 실전</h4>
       <ul><li>계획 자본의 5% 이하, 레버리지 상한 2배로 시작</li><li>월간 성과 검토, 분기별 재검증</li></ul>
       <div class="gate"><b>통과 기준</b> 낙폭이 예산 이내이고 성과가 검증 구간 분포 안에 있으면 단계적으로 증액</div></div></div>
@@ -456,8 +457,25 @@ flowchart LR
   </ul>
 </section>
 
+<section id="cases">
+  <h2><span class="n">13</span>사례 검증 반영 (10/24 보완)</h2>
+  <p>「PPP 타점 사례 모음집」 10건을 실제 선물 시세로 검증한 결과(별도 「PPP 타점 사례 검증 보고서」)를 이 기획에 반영했습니다.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>모듈</th><th>보완 내용</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td><b>L2 비중·위험</b></td><td>주문 전 검사: 손절 거리 + 유지 증거금률이 1/레버리지의 80%를 넘으면 주문 거부. 레버리지 = min(계좌 1% 위험 배수, 청산 안전 배수, 상한 10배). 격리 마진만 허용</td><td>사례 10건 중 4건이 손절 기준보다 청산가가 가까움</td></tr>
+      <tr><td><b>L4 실행</b></td><td>진입과 동시에 손절·1차 익절 주문 등록. PPP v2 크로스 품질 점수는 진입 조건에서 빼고 점검표로만 표시. 지정가 우선</td><td>점수 구간별 성과 차이 없음, PPP 크로스 시점 = 무작위 시점</td></tr>
+      <tr><td><b>청산 관리 (신규)</b></td><td>1R 절반 익절 → 본전 → 추적 EMA(20) 이탈 시 나머지 청산, 96봉 시간 손절</td><td>승률 40% → 50%, 알트 15분봉 수수료 전 PF 1.06 → 1.21</td></tr>
+      <tr><td><b>매매 감사 (신규)</b></td><td>매매일지 체결을 실제 시세에 대입해 진입 시각, 최대 역행, 손절 vs 청산, 1P 일치, 같은 조건 기저율을 자동 계산</td><td>사례 같은 조건 반복 시 1,463회 중 승률 20%</td></tr>
+      <tr><td><b>데이터</b></td><td>Gate·BingX 선물 API 사용, 바이낸스·바이비트 선물 API는 이 환경에서 차단. Gate는 시간봉별 최근 1만 봉만 제공하므로 자체 수집 필수</td><td>이번 데이터 수집</td></tr>
+      <tr><td><b>L1 연구 범위</b></td><td>주요 5종목 + 거래대금 상위 알트 무기한 선물</td><td>4시간봉 방향 일치가 네 묶음 중 세 묶음에서 PF 우위</td></tr>
+    </tbody>
+  </table></div>
+  <p>v2 지표(<code class="inline">ppp-oscillator-v2.pine</code>)와 v2 전략(<code class="inline">ppp-v2-strategy.pine</code>)이 이 보완 내용을 구현합니다. 단계 4(도구 개발)의 Pine v2 항목이 앞당겨진 셈입니다.</p>
+</section>
+
 <section id="next" style="border-bottom:0">
-  <h2><span class="n">13</span>바로 할 일</h2>
+  <h2><span class="n">14</span>바로 할 일</h2>
   <ol class="tight">
     <li>선물 시세·펀딩비 수집기와 2019년 이후 20~50종목 데이터 구축 (단계 1)</li>
     <li>E8 규칙에 변동성 기준 비중을 붙여 낙폭이 얼마나 줄어드는지 확인 (단계 2의 첫 실험)</li>
