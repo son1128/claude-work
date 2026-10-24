@@ -99,6 +99,21 @@ RSI(14) → RSI의 스토캐스틱(14) → EMA(3) = K(흰 선) → EMA(3) = D(�
 
 Pine 코드 두 개는 [pynescript](https://pypi.org/project/pynescript/) 파서로 문법 검사를 통과했습니다. 이 검사는 TradingView 컴파일러가 아니라서 타입 오류까지 잡지는 못합니다. TradingView에서 처음 붙여넣을 때 오류가 나면 콘솔의 줄 번호를 확인하세요.
 
+## PPP 2.0 탐색 실험
+
+`verify/explore_v2.py`는 「PPP 스캘핑 매매법 핵심 요약서」를 함께 분석하면서 돌린 실험 E1~E8입니다. 결과는 `verify/explore_v2.json`, 설계와 개발 계획은 [`reports/ppp-2.0-plan.html`](../../reports/ppp-2.0-plan.html)에 있습니다.
+
+- E1: 1분봉은 시장가 왕복 수수료가 ATR 중앙값의 123%입니다(15분봉 25%, 1시간봉 12%).
+- E2~E5: 타임프레임을 올리고 ATR 브래킷 청산과 비용 관문을 쓰면 수수료 후 PF가 0.08에서 0.7~0.9로 좋아지지만, 수수료 전 PF는 1.0 근처에 머뭅니다.
+- E6: 같은 1P·2P 조건에서 PPP 크로스 진입은 같은 빈도의 무작위 진입과 성과가 같았습니다.
+- E7~E8: 4시간봉 EMA 60·120·240 배열만으로 보유하면 약 7년 동안 5종목 중 4종목에서 단순 보유보다 샤프가 높았습니다(0.73~0.84 vs 0.40~0.55). 최대 낙폭은 −59%~−92%입니다.
+
+```
+python fetch_klines.py data 75 BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT
+# 5분봉 400일, 4시간봉 2600일은 fetch_klines.py의 interval(1m)을 바꿔 data5/<SYM>_5m.csv, data4h/<SYM>_4h.csv로 저장
+python explore_v2.py data data5 out data4h
+```
+
 ## 직접 다시 돌려 보기
 
 ```
