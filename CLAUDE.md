@@ -14,6 +14,8 @@ Current apps:
 
 `firestore-rules/` is the one exception to the no-tooling rule: a small npm project with Firestore security rules for a sample CRM and Vitest tests run against the Firestore emulator (`npm install && npm test` inside that folder; needs Java for the emulator). It is unrelated to the mini-apps and their conventions below don't apply to it.
 
+`ppp2/` is a second exception: a Python package (futures data collector + risk-checked execution engine for the PPP indicator research in `pine-scripts/ppp/`). Run `pip install -r requirements.txt && python -m pytest -q` inside that folder; the tests need no network. `ppp2/ppp2/core/` is a copy of `pine-scripts/ppp/verify/ppp_core.py` and `ppp_v2.py` (a parity test checks they still match), so change both together. The mini-app conventions don't apply to it either.
+
 ## Working with an app
 
 There is no dev server or build step. Open the file directly, e.g.:

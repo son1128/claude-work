@@ -1,0 +1,70 @@
+# PPP 2.0 설정 예시. 복사해서 쓰세요:  cp config.example.toml config.toml
+# 적지 않은 값은 ppp2/config.py의 기본값을 씁니다. 표(dict) 값은 통째로 바뀝니다.
+
+[general]
+db = "data/market.db"           # 시세 DB (수집기)
+journal = "data/engine.db"      # 엔진 기록 DB
+state_dir = "data"              # 이 폴더에 HALT 파일을 만들면 신규 진입이 멈춥니다
+tz_offset_hours = 9             # 일일·주간 손실 한도의 날짜 기준 (한국시간)
+
+[collector]
+exchange = "gate"               # gate | bingx
+symbols = ["BTC", "ETH", "SOL"]
+intervals = ["1m", "15m", "4h"] # 엔진 진입 시간봉 + L1(4h) + 현재가용 1m
+universe_top = 0                # N이면 24시간 거래대금 상위 N개를 더 수집
+min_quote_volume = 20000000
+every_seconds = 60
+# Gate는 시간봉별 최근 1만 봉까지만 줍니다 (1m 약 7일, 15m 약 104일, 4h 약 4.5년)
+lookback_days = { "1m" = 6, "5m" = 30, "15m" = 100, "1h" = 400, "4h" = 400, "1d" = 1000 }
+
+[risk]
+risk_pct = 1.0                  # 1회 계좌 위험 (%), 수수료 포함
+lev_cap = 10                    # 레버리지 상한. 실제 배수는 계산 결과 (보통 이보다 낮음)
+liq_safety = 0.8                # 손절 거리 + 유지증거금률 ≤ 0.8 / 레버리지
+max_margin_frac = 0.25          # 포지션 하나의 증거금 ≤ 계좌 25%
+max_open = 3
+max_total_notional_x = 3.0
+daily_loss_pct = 2.0            # 그날은 신규 진입 없음, 다음 날 자동 해제
+weekly_loss_pct = 5.0
+min_stop_pct = 0.10
+max_stop_pct = 5.0
+cost_gate_mult = 3.0            # 1차 익절 거리 ≥ 왕복 시장가 수수료 × 3
+max_signal_age_s = 180
+max_price_dev_pct = 0.30
+max_data_age_s = 600
+require_l1 = true               # 엔진이 계산한 4시간봉 방향과 같은 신호만
+min_score = 0                   # 품질 점수는 검증상 효과가 없어 0 (점검표 용도)
+
+[exits]
+tp1_r = 1.0                     # 1차 익절 = 손절폭 × 1
+tp1_frac = 0.5                  # 1차 익절 비중
+trail_len = 20                  # 1차 익절 뒤 EMA(20) 종가 이탈 시 나머지 청산
+pre_tp_bars = 96
+max_bars = 288
+
+[engine]
+mode = "paper"                  # paper | gate-dryrun | gate
+exchange = "gate"               # 시세·계약 정보를 읽을 거래소 (수집기와 같게)
+symbols = ["BTC", "ETH", "SOL"]
+tf = "15m"
+l1_tf = "4h"
+auto_signals = true             # DB 시세로 PPP v2 신호를 직접 만들지 (false면 웹훅·수동 신호만)
+poll_seconds = 20
+
+[paper]
+equity = 10000
+slippage_bps = 2
+taker_fee = 0.00075             # Gate 무기한 선물 시장가
+maker_fee = -0.0001             # Gate 지정가 (리베이트)
+
+[gate_live]
+testnet = true                  # 먼저 테스트넷에서 확인
+dry_run = true                  # true면 mode = "gate"를 거부합니다. 실주문 직전에만 false로
+key_env = "GATE_API_KEY"        # 출금 권한 없는 키만 쓰세요
+secret_env = "GATE_API_SECRET"
+price_type = 0                  # 손절 트리거: 0 최종 체결가, 1 마크 가격
+
+[webhook]
+host = "127.0.0.1"
+port = 8787
+token_env = "PPP2_WEBHOOK_TOKEN"

@@ -42,6 +42,10 @@ Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`
 | [`pine-scripts/buy-sell-volume.pine`](pine-scripts/buy-sell-volume.pine) | Buy/sell volume split ([guide](pine-scripts/README.md)) |
 | [`pine-scripts/ppp/`](pine-scripts/ppp/README.md) | PPP oscillator clone (v1, v2) + strategies, with a Python port, backtests and a case audit on real futures data in `verify/` (reports: [`reports/ppp-indicator-report.html`](reports/ppp-indicator-report.html), [`reports/ppp-2.0-plan.html`](reports/ppp-2.0-plan.html), [`reports/ppp-case-audit.html`](reports/ppp-case-audit.html)) |
 
+## PPP 2.0 trading system
+
+`ppp2/` is a Python package (Korean docs) with a perpetual-futures data collector (Gate, BingX → SQLite) and a risk-checked execution engine (pre-trade risk checks, paper / Gate dry-run / Gate live brokers, exit manager, TradingView webhook). It is not a mini-app: run `pip install -r requirements.txt` and `python -m pytest -q` inside `ppp2/`. See [`ppp2/README.md`](ppp2/README.md).
+
 ## Firestore rules
 
 `firestore-rules/` holds role-based Firestore security rules for a sample CRM ("ClientBase") plus emulator tests — unrelated to the mini-apps. Unlike the rest of the repo it is an npm project: run `npm install && npm test` inside it (needs Node.js 20+ and Java 11+). See [`firestore-rules/README.md`](firestore-rules/README.md).
