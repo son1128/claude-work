@@ -143,3 +143,19 @@ def test_universe_ranks_by_volume(store):
             return [spec("A"), spec("B"), spec("C")]
     col = Collector(store, Ex(0))
     assert col.universe(top_n=2, min_quote_volume=2e6) == ["B", "A"]
+
+
+def test_binance_spot_paginates_and_drops_open_bar():
+    from ppp2.data.exchanges import BinanceSpotData
+    step = INTERVAL_MS["4h"]
+    now = 1_800_000_000_000 // step * step + 1000          # 진행 중인 봉이 하나 있음
+    start = now - 2500 * step
+
+    def klines(p, b):
+        t0 = p["startTime"] // step * step
+        ts = [t for t in range(t0, min(p["endTime"], now) + 1, step)][: p["limit"]]
+        return [[t, "1", "2", "0.5", "1.5", "3"] for t in ts]
+    http = FakeHttp({("GET", "/api/v3/klines"): klines})
+    rows = BinanceSpotData(http=http, now=lambda: now).candles("BTC", "4h", start)
+    assert len(http.calls) == 3 and rows[-1][0] + step <= now
+    assert len(rows) == len({r[0] for r in rows}) == 2500 - 0

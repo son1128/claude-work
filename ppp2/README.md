@@ -12,8 +12,9 @@ ppp2/
   data/        http.py  exchanges.py (Gate, BingX)  store.py (SQLite)  collector.py
   engine/      risk.py (위험 점검)  paper.py (모의 체결)  manager.py (청산 관리)  signals.py (PPP v2 신호)
                engine.py (전체 흐름)  journal.py (기록)  gate.py (Gate 주문·드라이런)  webhook.py (TradingView 알림)
+  research/    trend.py (방향·변동성 비중·비용·기간 분할 검증·무작위 대조)  stage2.py (단계 2 실행)
   cli.py       python -m ppp2 ...
-tests/         64개 (네트워크 없이 실행)
+tests/         75개 (네트워크 없이 실행)
 ```
 
 ```
@@ -59,7 +60,7 @@ python -m ppp2 -c config.toml engine resume
 
 | 기능 | 내용 |
 |---|---|
-| 거래소 | Gate, BingX 무기한 선물 (바이낸스·바이비트는 이 환경에서 접속 차단) |
+| 거래소 | Gate, BingX 무기한 선물 (바이낸스·바이비트 선물은 이 환경에서 접속 차단). 연구용 장기 이력은 바이낸스 현물 공개 시세(`binance-spot`) |
 | 이어 받기 | 마지막 저장 봉의 2개 앞부터 다시 받아 덮어씀. 처음이면 `lookback_days`만큼 |
 | 마감된 봉만 | 아직 진행 중인 봉은 저장하지 않음 |
 | Gate 1만 봉 제한 | 요청 시작을 자동으로 잘라 오류 없이 받음. 그보다 오래된 이력은 상시 수집으로 쌓아야 합니다 |
@@ -104,10 +105,35 @@ Gate 실주문(`mode = "gate"`)에는 안전장치가 하나 더 있습니다. �
   - 알림이 L1=+1이라고 보냈지만 엔진의 4시간봉 L1이 −1이라 거부했습니다.
   - 승인된 경우에는 레버리지 설정 → 시장가 진입 → 손절 조건부 주문 → 1차 익절 지정가 순서의 Gate 요청이 기록됐습니다.
 
+## 단계 2 연구: 4시간봉 방향 + 변동성 기준 비중
+
+`ppp2/research/`에 있고 보고서는 [`reports/ppp-stage2-trend.html`](../reports/ppp-stage2-trend.html), 결과는 [`research_results/stage2_results.json`](research_results/stage2_results.json)입니다.
+
+```bash
+# 바이낸스 현물 4시간봉 약 7.5년 (36종목, 상장 폐지 코인 포함). 연구용 설정 파일에 아래를 넣습니다
+#   [collector] exchange = "binance-spot", intervals = ["4h"], lookback_days = { "4h" = 2750 }, symbols = [...]
+python -m ppp2 -c research.toml collect update
+python -m ppp2 -c research.toml research stage2 --out research_results/stage2_results.json   # 약 2분
+```
+
+| 결과 (2019-04 ~ 2026-10, 비용·펀딩비 후) | 샤프 | 연 수익 | 최대 낙폭 |
+|---|---:|---:|---:|
+| 권장 후보: EMA 앙상블(30/60/120·60/120/240·90/180/360), 목표 변동성 20% | 1.15 | 25% | −19% |
+| 문서 설정 그대로: EMA 60/120/240, 목표 30% | 1.08 | 35% | −30% |
+| 기획서 기준: 2년마다 설정 20개 중 골라 다음 6개월 (기간 분할 검증) | 0.74 | 19% | −36% |
+| BTC 보유 | 0.91 | 44% | −77% |
+
+- **판정은 조건부 통과입니다.**
+  - 미리 정한 기준(설정을 골라 쓰는 기간 분할 검증)은 통과하지 못했습니다.
+  - 설정을 고르지 않는 권장 후보는 8개 확인 기준(부트스트랩, 무작위 대조, 설정 ±25%, 이전 실험에 안 쓴 31종목, 앞뒤 절반)을 모두 통과했습니다.
+  - 다만 권장 후보는 결과를 본 뒤 정했으므로, 진짜 검증은 모의 매매입니다.
+- **타이밍의 가치:** 방향 신호를 시간만 무작위로 옮기면 평균 샤프가 −0.52로 떨어졌습니다(200회 중 실제 이상 0회).
+- **데이터 처리:** 하루 넘게 끊긴 종목(LUNA 재상장, FTT 재개)은 앞뒤를 다른 종목으로 나눴습니다.
+
 ## 테스트
 
 ```bash
-cd ppp2 && python -m pytest -q        # 64 passed, 네트워크 불필요
+cd ppp2 && python -m pytest -q        # 75 passed, 네트워크 불필요
 ```
 
 위험 점검(사례 LSK·ROBO 수치 포함), 모의 체결(손절·1차 익절·본전·갭 청산), 청산 관리, 저장소·수집기(이어 받기·빠진 봉·장애 격리), 거래소 어댑터(Gate 1만 봉 제한, BingX 호출 제한), Gate 서명·요청 형식·안전장치(청산가 재확인, 손절 주문 실패 시 정리, 양방향 모드 거부), 웹훅(토큰·종목명 정리), 엔진 전체 경로를 다룹니다. 연구 코드와 패키지 지표 코드가 같은 값을 내는지도 확인합니다.

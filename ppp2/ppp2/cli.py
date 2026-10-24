@@ -8,6 +8,8 @@
   collect check                      품질 점검 (빠진 봉, 이상한 OHLC)
   collect universe --top N           24시간 거래대금 상위 종목
   collect run                        주기 실행 (Ctrl+C로 종료)
+연구
+  research stage2 [--out results.json]   4시간봉 방향 + 변동성 기준 비중 (단계 2)
 엔진
   engine risk   -s BTC --side long [--price P] [--stop S] [--l1 1]   위험 점검만 (주문 안 함)
   engine submit -s BTC --side long ...                              위험 점검 후 승인되면 주문
@@ -219,6 +221,12 @@ def main(argv=None):
     c.add_argument("-x", "--exchange")
     c.add_argument("--days", type=float, default=30)
     c.add_argument("--top", type=int, default=20)
+    r = sub.add_parser("research", help="연구 (단계 2: 4시간봉 방향 + 변동성 기준 비중)")
+    r.add_argument("action", choices=["stage2"])
+    r.add_argument("-x", "--exchange", default="binance-spot")
+    r.add_argument("-s", "--symbols")
+    r.add_argument("--out", default="stage2_results.json")
+    r.add_argument("--random-reps", type=int, default=200)
     e = sub.add_parser("engine", help="위험 점검 실행 엔진")
     e.add_argument("action", choices=["risk", "submit", "run", "replay", "status", "halt", "resume"])
     e.add_argument("reason", nargs="?")
@@ -237,6 +245,16 @@ def main(argv=None):
     cfg = config_mod.load(a.config)
     if a.cmd == "collect":
         cmd_collect(cfg, a)
+    elif a.cmd == "research":
+        from .research import stage2
+        store = Store(cfg.general.db)
+        symbols = _list(a.symbols) if a.symbols else list(cfg.collector.symbols)
+        res = stage2.evaluate(store, a.exchange, symbols, a.out, random_reps=a.random_reps)
+        for title, key in (("기획서 통과 기준 (기간 분할 검증, 설정 선택)", "gate"), ("권장 후보 (앙상블, 목표 변동성 20%)", "gate_recommended")):
+            print(f"{title}: {'통과' if res[key + '_pass'] else '미통과'}")
+            for g in res[key]:
+                print(f"  {'✓' if g['pass'] else '✗'} {g['item']}: {g['value']:.3f}")
+        print(f"결과: {a.out}")
     else:
         if a.action in ("risk", "submit") and (not a.symbol or not a.side):
             ap.error("risk/submit에는 -s 종목과 --side가 필요합니다")

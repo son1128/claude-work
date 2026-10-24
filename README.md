@@ -44,7 +44,7 @@ Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`
 
 ## PPP 2.0 trading system
 
-`ppp2/` is a Python package (Korean docs) with a perpetual-futures data collector (Gate, BingX → SQLite) and a risk-checked execution engine (pre-trade risk checks, paper / Gate dry-run / Gate live brokers, exit manager, TradingView webhook). It is not a mini-app: run `pip install -r requirements.txt` and `python -m pytest -q` inside `ppp2/`. See [`ppp2/README.md`](ppp2/README.md).
+`ppp2/` is a Python package (Korean docs) with a perpetual-futures data collector (Gate, BingX → SQLite) and a risk-checked execution engine (pre-trade risk checks, paper / Gate dry-run / Gate live brokers, exit manager, TradingView webhook). It also holds the stage 2 trend research (4h EMA direction + volatility-targeted sizing; report: [`reports/ppp-stage2-trend.html`](reports/ppp-stage2-trend.html)). It is not a mini-app: run `pip install -r requirements.txt` and `python -m pytest -q` inside `ppp2/`. See [`ppp2/README.md`](ppp2/README.md).
 
 ## Firestore rules
 
