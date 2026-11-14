@@ -16,6 +16,8 @@ Current apps:
 
 `.claude/skills/video-breakdown/` is a project skill (Korean) for reverse-engineering how a reference video was made, using the open-source rea-video CLI installed by its own `scripts/setup.sh` (pinned, reviewed commit; isolated venv under `~/.local/share/rea-video`). Analysis outputs go to `~/video-breakdowns/`, never into this repo. The mini-app conventions don't apply to it.
 
+`.claude/skills/trading-bot-ad-audit/` is a project skill (Korean) for auditing "AI trading bot" social-media promos: translation, claim math (`scripts/claim_math.py`, stdlib only, offline), dashboard-image reading, funnel/red-flag scoring and a verdict. Its worked example is `references/case-grok-bot.md`. It never contacts the promoter, opens linked bots/sites, or writes live-trading/key-handling code (paper trading and backtests only). The mini-app conventions don't apply to it.
+
 ## Working with an app
 
 There is no dev server or build step. Open the file directly, e.g.:
