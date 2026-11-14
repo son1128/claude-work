@@ -14,6 +14,8 @@ Current apps:
 
 `firestore-rules/` is the one exception to the no-tooling rule: a small npm project with Firestore security rules for a sample CRM and Vitest tests run against the Firestore emulator (`npm install && npm test` inside that folder; needs Java for the emulator). It is unrelated to the mini-apps and their conventions below don't apply to it.
 
+`.claude/skills/video-breakdown/` is a project skill (Korean) for reverse-engineering how a reference video was made, using the open-source rea-video CLI installed by its own `scripts/setup.sh` (pinned, reviewed commit; isolated venv under `~/.local/share/rea-video`). Analysis outputs go to `~/video-breakdowns/`, never into this repo. The mini-app conventions don't apply to it.
+
 ## Working with an app
 
 There is no dev server or build step. Open the file directly, e.g.:
