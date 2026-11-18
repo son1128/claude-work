@@ -58,7 +58,7 @@ Instagram에 돌던 "Grok으로 만든 Polymarket AI 트레이딩 시스템" 게
 Python 3.11+만 있으면 됩니다(표준 라이브러리만 사용). 이 폴더 안에서:
 
 ```bash
-python -m unittest discover -s tests -t .      # 테스트 47개, 네트워크 불필요
+python -m unittest discover -s tests -t .      # 테스트 50개, 네트워크 불필요 (Node가 있으면 웹 엔진 일치 검사 포함)
 cp config.example.toml config.toml              # 필요하면 수정
 
 python -m grokdesk -c config.toml scan          # 읽기 전용: 현재 창, 모델 vs 시장, 수수료, 지역 차단 여부
@@ -81,6 +81,28 @@ Grok 감독관 켜기: `config.toml`에서 `[grok] enabled = true`, 그리고 `e
 
 `LiveExecutor`는 Polymarket 공식 `py-clob-client`를 쓰지만 **이 저장소에서 실제 거래소로 검증되지
 않았습니다**(개발 환경이 지역 차단됨). 최소 주문 단위로 먼저 시험하세요.
+
+## 웹앱 (실데이터 재생)
+
+`web/`에는 같은 데스크를 브라우저에서 돌리는 한 파일짜리 웹앱 소스가 있습니다. 게시본:
+https://claude.ai/artifact/Uh2poTVoHZ2af2EbPvuQFg
+
+| 파일 | 역할 |
+|---|---|
+| `web/engine.js` | `quant.py`·`agents.py`·`risk.py`·`ledger.py`를 JS로 옮긴 재생 엔진 (`tests/test_web_engine.py`가 Python과 값이 같은지 검사) |
+| `web/page.html` | 화면 (재생 조작, 에이전트 판단 흐름, 차트, 장부, 설정별 비교, 내 데스크 기록 불러오기) |
+| `web/fetch_replay.py` | 최근 마감된 15분 창의 바이낸스 1초가·Polymarket 가격 이력·실제 정산 결과를 내려받음 |
+| `web/build.py` | 엔진과 데이터를 `page.html`에 넣어 외부 요청이 없는 한 파일로 만듦 |
+
+```bash
+python web/fetch_replay.py --windows 96   # -> data/replay.json  (약 1분)
+python web/build.py                       # -> data/grok-desk.html (브라우저로 바로 열림)
+```
+
+- 웹페이지는 외부 API를 부를 수 없어서 데이터를 넣어 두고 재생합니다. Grok 호출과 실시간 모의매매는 Python 데스크의 몫입니다.
+- Polymarket 가격 이력은 약 1분 간격이라, 가격이 찍힌 시각에만 판단합니다. 매수가는 중간가 + 스프레드/2(틱 올림)로 가정합니다.
+- 감독관은 규칙 / 수동 승인(+선택적으로 Claude 의견) / 끔 중에서 고릅니다.
+- "내 데스크 기록" 탭에 `data/paper/positions.json`·`trace.jsonl`을 끌어 놓으면 Python 데스크의 실제 기록을 봅니다.
 
 ## 이 코드가 증명하지 못하는 것
 

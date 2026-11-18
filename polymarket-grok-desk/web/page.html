@@ -1,0 +1,698 @@
+<title>Grok Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a trading-desk console. Summary strip, then the live window (price + probability),
+   the agent pipeline, and the ledger; settings sit in a right rail that drops below on phones. */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f6f8fb; --ink:#14202b; --muted:#5a6a7b; --line:#d9e0e8;
+  --accent:#4655c8; --accent-soft:#e6e9fb; --up:#0d8f6f; --down:#c9443f; --warn:#b67a0c; --grid:#e6ebf1;
+  --up-soft:#dff3ec; --down-soft:#f9e3e2; --warn-soft:#f8eed8;
+  --f-display:"Space Grotesk","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1117; --surface:#131a22; --surface-2:#18212b; --ink:#e4ebf2; --muted:#8a9bad; --line:#25313e;
+  --accent:#8f9cff; --accent-soft:#232a4d; --up:#33c59c; --down:#f07068; --warn:#e2a83c; --grid:#1d2732;
+  --up-soft:#123329; --down-soft:#3a1c1b; --warn-soft:#3a2d12; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c1117; --surface:#131a22; --surface-2:#18212b; --ink:#e4ebf2; --muted:#8a9bad; --line:#25313e;
+  --accent:#8f9cff; --accent-soft:#232a4d; --up:#33c59c; --down:#f07068; --warn:#e2a83c; --grid:#1d2732;
+  --up-soft:#123329; --down-soft:#3a1c1b; --warn-soft:#3a2d12; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;text-wrap:balance}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--f-display);font-size:28px;font-weight:700;letter-spacing:-.01em}
+.brand .sub{color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tab{border:0;background:none;padding:6px 14px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{background:var(--accent-soft);color:var(--ink)}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);font-size:13px}
+.note b{color:var(--ink);font-weight:600}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 10px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600}
+.clock{margin-left:auto;color:var(--muted);font-size:13px;min-width:0}
+.clock b{color:var(--ink);font-weight:600}
+.progress{height:4px;background:var(--grid);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.kpi{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .lab{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.kpi .val{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600}
+.kpi .hint{font-size:12px;color:var(--muted)}
+.pos{color:var(--up)} .neg{color:var(--down)}
+
+/* grid */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.panel h2{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.panel h2 .tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+.panel .meta{color:var(--muted);font-size:12px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.charts{grid-template-columns:1fr}}
+canvas{width:100%;display:block}
+.cv-price,.cv-prob{height:220px}
+.cv-eq{height:150px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+@media (max-width:1100px){.pipe{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:480px){.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stage{border:1px solid var(--line);border-radius:9px;padding:8px 9px;background:var(--surface-2);display:flex;flex-direction:column;gap:3px;min-width:0;transition:border-color .2s,background .2s}
+.stage .nm{font-family:var(--f-mono);font-size:11px;letter-spacing:.07em;font-weight:600}
+.stage .ko{font-size:11px;color:var(--muted)}
+.stage .st{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.stage[data-s="ok"]{border-color:var(--up);background:var(--up-soft)}
+.stage[data-s="stop"]{border-color:var(--warn);background:var(--warn-soft)}
+.stage[data-s="bad"]{border-color:var(--down);background:var(--down-soft)}
+.stage[data-s="live"]{border-color:var(--accent);background:var(--accent-soft)}
+
+/* approval */
+.approve{border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.approve .row{display:flex;flex-wrap:wrap;gap:8px}
+.approve pre{margin:0;white-space:pre-wrap;font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.claude-out{font-size:13px;border-left:3px solid var(--accent);padding-left:10px}
+
+/* tables */
+.tbl{overflow-x:auto;max-height:340px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface);color:var(--muted);font-weight:500;font-size:12px}
+td.r,th.r{text-align:right}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600}
+.pill.up{background:var(--up-soft);color:var(--up)} .pill.down{background:var(--down-soft);color:var(--down)}
+.pill.won{background:var(--up-soft);color:var(--up)} .pill.lost{background:var(--down-soft);color:var(--down)}
+.pill.open{background:var(--accent-soft);color:var(--accent)}
+.log{font-family:var(--f-mono);font-size:12px;max-height:260px;overflow:auto;display:flex;flex-direction:column}
+.log div{padding:3px 0;border-bottom:1px dashed var(--grid);display:grid;grid-template-columns:62px 84px minmax(0,1fr);gap:8px}
+.log .k{color:var(--muted)}
+.log .k.fill{color:var(--accent)} .log .k.settle{color:var(--up)} .log .k.supervisor{color:var(--warn)}
+.sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.side{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+.side .h{grid-column:1/-1;font-weight:600;display:flex;justify-content:space-between}
+.side .k{color:var(--muted)}
+.side .v{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+@media (max-width:520px){.kpis{grid-template-columns:1fr 1fr}.kpis .kpi:last-child:nth-child(odd){grid-column:span 2}.sides{grid-template-columns:1fr}}
+
+/* settings rail */
+.rail{position:sticky;top:12px}
+@media (max-width:980px){.rail{position:static}}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{display:flex;justify-content:space-between;font-size:12.5px;gap:8px}
+.field label output{font-family:var(--f-mono);color:var(--accent)}
+.field small{color:var(--muted);font-size:11.5px;line-height:1.4}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 8px}
+.cmp table td{white-space:nowrap}
+.cmp td.lbl{white-space:normal;min-width:110px}
+
+/* import */
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.cmd{display:flex;flex-direction:column;gap:6px}
+.cmd{min-width:0}
+.cmd code{display:block;max-width:100%;padding:8px 10px;overflow-x:auto;white-space:pre}
+.foot{color:var(--muted);font-size:12px;line-height:1.6}
+.foot p{margin:0 0 6px;max-width:80ch}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Grok Desk</h1>
+      <span class="sub">Polymarket 비트코인 15분 Up/Down · 에이전트 매매 데스크</span>
+    </div>
+    <div class="tabs" role="tablist" aria-label="화면">
+      <button class="tab" role="tab" id="tab-replay" aria-selected="true" aria-controls="view-replay">실데이터 재생</button>
+      <button class="tab" role="tab" id="tab-import" aria-selected="false" aria-controls="view-import">내 데스크 기록</button>
+    </div>
+  </header>
+
+  <div class="note" id="dataNote">
+    <b>최근 24시간의 실제 데이터</b>(바이낸스 1초봉 + Polymarket 가격 이력 + 실제 정산 결과)를 내장해, PR #13의 Python 데스크와 같은 로직으로 재생합니다.
+    브라우저 아티팩트는 외부 API를 호출할 수 없으므로 Grok(xAI) 호출과 실시간 매매는 Python 데스크에서 동작하고, 여기서는 그 판단 과정을 그대로 보여줍니다.
+  </div>
+
+  <!-- REPLAY -->
+  <section id="view-replay" role="tabpanel" aria-labelledby="tab-replay" class="wrap" style="gap:16px">
+    <div class="controls">
+      <button class="btn primary" id="play" aria-label="재생">▶ 재생</button>
+      <button class="btn" id="stepBtn">한 단계</button>
+      <button class="btn" id="resetBtn">처음부터</button>
+      <button class="btn" id="endBtn">끝까지 즉시 실행</button>
+      <div class="seg" role="group" aria-label="재생 속도" id="speeds">
+        <button data-v="30" aria-pressed="false">30×</button>
+        <button data-v="120" aria-pressed="false">120×</button>
+        <button data-v="450" aria-pressed="true">450×</button>
+        <button data-v="1800" aria-pressed="false">1800×</button>
+      </div>
+      <div class="clock" id="clock">준비</div>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="main">
+      <div class="col">
+        <div id="approvalSlot"></div>
+
+        <div class="panel">
+          <h2><span class="tag">PIPELINE</span> 에이전트 판단 흐름 <span class="meta" id="pipeMeta"></span></h2>
+          <div class="pipe" id="pipe"></div>
+        </div>
+
+        <div class="charts">
+          <div class="panel">
+            <h2><span class="tag">THE TAPE</span> <span id="winTitle">BTC 현재가</span></h2>
+            <canvas class="cv-price" id="cvPrice" role="img" aria-label="현재 창의 비트코인 가격과 기준가"></canvas>
+            <div class="legend"><span><i style="background:var(--ink)"></i>BTC (바이낸스 1초)</span><span><i style="background:var(--warn)"></i>기준가(창 시작)</span><span><i style="background:var(--accent-soft);height:10px"></i>정산 TWAP 60초</span></div>
+          </div>
+          <div class="panel">
+            <h2><span class="tag">THE PRICER</span> 상승 확률: 모델 vs 시장</h2>
+            <canvas class="cv-prob" id="cvProb" role="img" aria-label="모델 상승확률과 시장 가격"></canvas>
+            <div class="legend"><span><i style="background:var(--accent)"></i>모델 P(UP)</span><span><i style="background:var(--muted)"></i>시장 가격(UP)</span><span><i style="background:var(--up)"></i>매수 UP</span><span><i style="background:var(--down)"></i>매수 DOWN</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2><span class="tag">EDGE</span> 마지막 관측의 양쪽 계산 <span class="meta" id="edgeMeta"></span></h2>
+          <div class="sides" id="sides"></div>
+        </div>
+
+        <div class="panel">
+          <h2><span class="tag">SWARM PNL</span> 잔고 추이 <span class="meta">창 정산마다 한 점</span></h2>
+          <canvas class="cv-eq" id="cvEq" role="img" aria-label="잔고 추이"></canvas>
+        </div>
+
+        <div class="panel">
+          <h2><span class="tag">LEDGER</span> 체결 장부 <span class="meta" id="ledgerMeta"></span></h2>
+          <div class="tbl"><table><thead><tr><th>#</th><th>창 (KST)</th><th>방향</th><th class="r">수량</th><th class="r">가격</th><th class="r">수수료</th><th class="r">모델 확률</th><th class="r">우위</th><th>결과</th><th class="r">손익</th></tr></thead><tbody id="ledger"></tbody></table></div>
+        </div>
+
+        <div class="panel">
+          <h2><span class="tag">THE TRACE</span> 판단 기록 <span class="meta">최근 순</span></h2>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+
+      <aside class="col rail">
+        <div class="panel">
+          <h2>설정</h2>
+          <div class="field">
+            <label for="supervisor">감독관 <output id="o-supervisor"></output></label>
+            <select id="supervisor">
+              <option value="rules">규칙 (Grok 프롬프트의 점검 항목)</option>
+              <option value="manual">수동 승인 + Claude 의견</option>
+              <option value="off">끔</option>
+            </select>
+            <small>수동 승인은 매수 제안마다 멈추고, 승인·거부를 직접 고르거나 Claude에게 의견을 물을 수 있습니다.</small>
+          </div>
+          <div class="field">
+            <label for="driftWeight">추세(drift) 가중치 <output id="o-driftWeight"></output></label>
+            <input type="range" id="driftWeight" min="0" max="1" step="0.05">
+            <small>게시물의 "회귀 기울기 + R²" 기법. 0이면 꺼짐.</small>
+          </div>
+          <div class="field">
+            <label for="minEdge">최소 우위 (주당) <output id="o-minEdge"></output></label>
+            <input type="range" id="minEdge" min="0" max="0.15" step="0.005">
+          </div>
+          <div class="field">
+            <label for="kellyMult">켈리 배수 <output id="o-kellyMult"></output></label>
+            <input type="range" id="kellyMult" min="0.05" max="1" step="0.05">
+          </div>
+          <div class="field">
+            <label for="maxBankrollFrac">거래당 최대 자금 비중 <output id="o-maxBankrollFrac"></output></label>
+            <input type="range" id="maxBankrollFrac" min="0.005" max="0.1" step="0.005">
+          </div>
+          <div class="field">
+            <label for="maxSecondsLeft">진입 허용: 만기 전 최대 <output id="o-maxSecondsLeft"></output></label>
+            <input type="range" id="maxSecondsLeft" min="60" max="900" step="30">
+          </div>
+          <div class="field">
+            <label for="spread">가정 스프레드 <output id="o-spread"></output></label>
+            <input type="range" id="spread" min="0" max="0.04" step="0.01">
+            <small>가격 이력에는 중간가만 있어, 매수가 = 중간가 + 스프레드/2 (틱 올림)로 가정합니다.</small>
+          </div>
+          <div class="field">
+            <label for="feeRate">테이커 수수료율 <output id="o-feeRate"></output></label>
+            <input type="range" id="feeRate" min="0" max="0.15" step="0.01">
+            <small>주당 수수료 = 수수료율 × p × (1−p). 실제 시장 값 0.07.</small>
+          </div>
+          <button class="btn" id="defaults">기본값으로</button>
+        </div>
+
+        <div class="panel cmp">
+          <h2>같은 데이터, 설정별 결과</h2>
+          <div class="tbl" style="max-height:none"><table><thead><tr><th>설정</th><th class="r">손익</th><th class="r">거래</th><th class="r">Brier</th></tr></thead><tbody id="cmp"></tbody></table></div>
+          <small class="meta">Brier: 낮을수록 확률이 잘 맞음. 같은 시점 시장 가격의 Brier는 <span class="num" id="mktBrier"></span>.</small>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- IMPORT -->
+  <section id="view-import" role="tabpanel" aria-labelledby="tab-import" class="wrap" hidden style="gap:16px">
+    <div class="panel">
+      <h2>내 Python 데스크의 기록 보기</h2>
+      <div class="cmd">
+        <span class="meta">PR #13의 <code>polymarket-grok-desk</code> 폴더에서 모의매매를 돌린 뒤, 만들어진 파일을 여기로 끌어 놓으세요. 파일은 이 브라우저 안에서만 읽고 어디에도 보내지 않습니다.</span>
+        <code>python -m grokdesk -c config.toml paper
+# 결과: data/paper/positions.json, data/paper/trace.jsonl</code>
+      </div>
+      <label class="drop" id="drop" for="fileIn">
+        <span><b>positions.json</b> 과 <b>trace.jsonl</b> 을 끌어 놓거나 눌러서 선택</span>
+        <input type="file" id="fileIn" accept=".json,.jsonl,application/json" multiple>
+      </label>
+      <div class="meta" id="importMsg">아직 불러온 파일이 없습니다.</div>
+    </div>
+    <div class="kpis" id="impKpis" hidden></div>
+    <div class="panel" id="impPosPanel" hidden>
+      <h2>포지션</h2>
+      <div class="tbl"><table><thead><tr><th>열린 시각</th><th>시장</th><th>방향</th><th class="r">수량</th><th class="r">평균가</th><th class="r">수수료</th><th class="r">모델 확률</th><th>결과</th><th class="r">손익</th><th>정산 근거</th></tr></thead><tbody id="impPos"></tbody></table></div>
+    </div>
+    <div class="panel" id="impTracePanel" hidden>
+      <h2>판단 기록 <span class="meta" id="impTraceMeta"></span></h2>
+      <div class="log" id="impLog"></div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <p><b>재생 방식.</b> 각 15분 창에서 Polymarket 가격 이력이 찍힌 시각(약 1분 간격)에만 판단합니다. 그 사이 가격이 멈춘 것처럼 보이는 틈을 이용하면 실제로는 없는 수익이 생기기 때문입니다. 모델은 그 시각까지의 바이낸스 1초 가격만 봅니다. 매수가는 지정가(최우선 호가 + 1틱)로, 정산은 Polymarket의 실제 결과로 계산합니다.</p>
+    <p><b>한계.</b> 실제 호가 깊이와 체결 지연은 반영되지 않습니다. 하루치 거래 수십 건의 손익은 운의 영향이 큽니다. 투자 조언이 아니며, 한국을 포함해 지역에 따라 예측시장 이용이 법적으로 문제가 될 수 있습니다.</p>
+  </div>
+</div>
+
+<script>/*__DATA__*/</script>
+<script>/*__ENGINE__*/</script>
+<script>
+(function(){
+  "use strict";
+  var data = GD.decode(window.__REPLAY__);
+  var $ = function(id){ return document.getElementById(id); };
+  var STORE = "grokdesk.params.v1";
+
+  // ---------- params ----------
+  var FIELDS = {
+    driftWeight:{fmt:function(v){return v===0?"꺼짐":v.toFixed(2);}},
+    minEdge:{fmt:function(v){return (v*100).toFixed(1)+"¢";}},
+    kellyMult:{fmt:function(v){return "×"+v.toFixed(2);}},
+    maxBankrollFrac:{fmt:function(v){return (v*100).toFixed(1)+"%";}},
+    maxSecondsLeft:{fmt:function(v){return v+"초";}},
+    spread:{fmt:function(v){return (v*100).toFixed(0)+"¢";}},
+    feeRate:{fmt:function(v){return v.toFixed(2);}}
+  };
+  function defaults(){ return {supervisor:"rules",driftWeight:GD.DEFAULTS.driftWeight,minEdge:GD.DEFAULTS.minEdge,kellyMult:GD.DEFAULTS.kellyMult,
+    maxBankrollFrac:GD.DEFAULTS.maxBankrollFrac,maxSecondsLeft:GD.DEFAULTS.maxSecondsLeft,spread:GD.DEFAULTS.spread,feeRate:0.07}; }
+  function load(){ try{ var v=JSON.parse(localStorage.getItem(STORE)); return v?Object.assign(defaults(),v):defaults(); }catch(e){ return defaults(); } }
+  function save(){ try{ localStorage.setItem(STORE, JSON.stringify(params)); }catch(e){} }
+  var params = load();
+  function engineParams(p){ var o=Object.assign({},p); o.feeOverride=p.feeRate; delete o.feeRate; return o; }
+
+  // ---------- formatting ----------
+  function usd(v,sign){ if(v==null||isNaN(v)) return "—"; var s=(sign&&v>0?"+":"")+(v<0?"−":"")+"$"+Math.abs(v).toFixed(2); return s; }
+  function pct(v,d){ return v==null?"—":(v*100).toFixed(d==null?1:d)+"%"; }
+  function cls(v){ return v>0.0001?"pos":v<-0.0001?"neg":""; }
+  var kstFmt = new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false});
+  var kstTime = new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  function winLabel(w){ var a=kstFmt.format(new Date(w.start*1000)), b=kstTime.format(new Date((w.start+900)*1000)).slice(0,5); return a+"–"+b; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  // ---------- state ----------
+  var desk, vt=0, playing=false, speed=450, lastFrame=0, series=[], lastTick=null, stages={}, raf=0;
+  var STAGES=[["SPOTTER","시장 탐색"],["PRIOR","확률 계산"],["EDGE","우위 계산"],["KELLY","베팅 크기"],["RISK","리스크 한도"],["SUPERVISOR","감독관"],["TAKER","체결"],["CLOSER","정산"]];
+
+  function newDesk(){
+    desk = new GD.Desk(data, engineParams(params));
+    vt=0; series=[]; lastTick=null; stages={};
+    STAGES.forEach(function(s){ stages[s[0]]={s:"",t:"대기"}; });
+    $("approvalSlot").innerHTML="";
+    renderAll();
+  }
+
+  // ---------- stage bookkeeping from events ----------
+  function applyEvent(ev){
+    if(!ev) return;
+    var w=ev.w;
+    if(ev.kind==="settle"){
+      var txt = ev.settled.length ? ev.settled.map(function(p){return p.side+" "+(p.status==="won"?"적중 ":"실패 ")+usd(p.pnl,true);}).join(", ") : "포지션 없음";
+      stages.CLOSER={s:ev.settled.length?(ev.settled.every(function(p){return p.status==="won";})?"ok":"bad"):"", t:(w.up?"UP":"DOWN")+" 정산 · "+txt};
+      series=[]; vt=0; return;
+    }
+    if(ev.kind!=="tick") return;
+    lastTick=ev;
+    series.push({off:ev.off,p:ev.sig.pUp,m:ev.mid});
+    stages.SPOTTER={s:"live",t:winLabel(w)+" · "+(900-ev.off)+"초 남음"};
+    stages.PRIOR={s:"live",t:"P(UP) "+ev.sig.pUp.toFixed(3)+" · 시장 "+ev.mid.toFixed(3)};
+    ["EDGE","KELLY","RISK","SUPERVISOR","TAKER"].forEach(function(k){ stages[k]={s:"",t:"—"}; });
+    if(ev.block){ stages.RISK={s:"stop",t:ev.block}; return; }
+    stages.RISK={s:"ok",t:"통과"};
+    if(ev.sides){
+      var b=ev.opp;
+      stages.EDGE = b ? {s:"ok",t:b.side+" "+(b.edge*100).toFixed(1)+"¢/주"} : {s:"stop",t:"양쪽 모두 "+(ev.sides[0].skip||"패스")};
+    }
+    if(ev.size){ stages.KELLY = ev.size.shares ? {s:"ok",t:ev.size.shares+"주 · "+usd(ev.size.stake)} : {s:"stop",t:ev.size.reason}; }
+    if(ev.needsReview){ stages.SUPERVISOR={s:"live",t:"승인 대기"}; }
+    if(ev.verdict){ stages.SUPERVISOR={s:ev.verdict.approve?"ok":"bad",t:(ev.verdict.approve?"승인 · ":"거부 · ")+ev.verdict.reason}; }
+    if(ev.fill){ stages.TAKER={s:"ok",t:ev.fill.side+" "+ev.fill.shares+"주 @ "+ev.fill.price.toFixed(2)}; }
+  }
+
+  // ---------- playback ----------
+  function advance(seconds){
+    var budget = seconds, guard=0;
+    while(!desk.done && guard++<400){
+      if(desk.pending){ pause(); break; }
+      var w=desk.data.windows[desk.wi];
+      var nextOff = desk.mi < w.mkt.length ? w.mkt[desk.mi][0] : 900;
+      if(nextOff <= vt + budget){
+        budget -= Math.max(0, nextOff - vt); vt = nextOff;
+        var ev = desk.next(); applyEvent(ev);
+        if(ev && ev.needsReview){ showApproval(ev.proposal); pause(); break; }
+        if(ev && ev.kind==="settle" && seconds < 900) { break; }
+      } else { vt += budget; break; }
+    }
+    if(desk.done) pause();
+  }
+  function frame(ts){
+    if(!playing) return;
+    var dt = lastFrame ? Math.min(0.25,(ts-lastFrame)/1000) : 0; lastFrame=ts;
+    advance(dt*speed); renderAll();
+    raf = requestAnimationFrame(frame);
+  }
+  function play(){ if(desk.done||desk.pending) return; playing=true; lastFrame=0; $("play").textContent="❚❚ 일시정지"; $("play").setAttribute("aria-label","일시정지"); raf=requestAnimationFrame(frame); }
+  function pause(){ playing=false; cancelAnimationFrame(raf); $("play").textContent="▶ 재생"; $("play").setAttribute("aria-label","재생"); }
+
+  // ---------- manual approval with optional Claude opinion ----------
+  var samplePromise = (window.claude && window.claude.use) ? window.claude.use("sample") : Promise.resolve(null);
+  var claudeFn = null; samplePromise.then(function(s){ claudeFn=s; }, function(){ claudeFn=null; });
+
+  function proposalJSON(pr){
+    return {
+      market: pr.w.q, seconds_left: pr.left,
+      model: { p_up: +pr.sig.pUp.toFixed(4), p_up_no_drift:+pr.sig.pUpNoDrift.toFixed(4), spot: pr.sig.spot, open_price: pr.sig.open,
+        vol_bp_per_sqrt_min: +(pr.sig.sigma*1e4*Math.sqrt(60)).toFixed(2), vol_30s_vs_5m: +(pr.sig.sigma30/pr.sig.sigma).toFixed(2), r2:+pr.sig.r2.toFixed(3) },
+      market_mid_up: pr.mid,
+      proposal: { side: pr.opp.side, limit_price: pr.opp.limit, p_win:+pr.opp.pWin.toFixed(4), fee_per_share:+pr.opp.fee.toFixed(4), edge_per_share:+pr.opp.edge.toFixed(4), shares: pr.size.shares, stake_usd:+pr.size.stake.toFixed(2) }
+    };
+  }
+  var PROMPT = "You are the risk supervisor of a small automated desk that trades Polymarket \"Bitcoin Up or Down\" binary markets (they resolve on Chainlink's 60-second BTC/USD TWAP at the window end vs the price at the start). The quant agents already priced this trade and found positive expected value after fees. Your only job is to catch reasons NOT to trade: stale or contradictory data, a model probability that disagrees with the market for no stated reason, a volatility spike, a probability so extreme that the remaining payoff is tiny, or anything else that suggests the edge is an artifact. You cannot see the future; do not try to predict price.\n\nReply with ONLY a JSON object: {\"decision\": \"APPROVE\" | \"VETO\", \"reason\": \"<= 25 words, in Korean\"}\n\nTrade:\n";
+
+  function showApproval(pr){
+    var j = proposalJSON(pr);
+    var slot=$("approvalSlot");
+    slot.innerHTML =
+      '<div class="approve" role="region" aria-label="매수 승인 요청">'+
+      '<h2 style="font-size:15px">매수 제안: <span class="pill '+(pr.opp.side==="UP"?"up":"down")+'">'+pr.opp.side+'</span> '+pr.size.shares+'주 @ '+pr.opp.limit.toFixed(2)+' · '+usd(pr.size.stake)+'</h2>'+
+      '<div class="meta">'+esc(winLabel(pr.w))+' · 만기 '+pr.left+'초 전 · 모델 '+pr.opp.pWin.toFixed(3)+' vs 시장 '+(pr.opp.side==="UP"?pr.mid:1-pr.mid).toFixed(3)+' · 우위 '+(pr.opp.edge*100).toFixed(1)+'¢/주</div>'+
+      '<div class="row"><button class="btn primary" id="apYes">승인</button><button class="btn" id="apNo">거부</button>'+
+      '<button class="btn" id="apAsk"'+(claudeFn?'':' hidden')+'>Claude에게 의견 묻기</button><button class="btn" id="apAuto">이후 규칙 감독관으로</button></div>'+
+      '<div class="claude-out" id="apOut" hidden></div>'+
+      '<details><summary class="meta">감독관에게 보내는 데이터</summary><pre>'+esc(JSON.stringify(j,null,1))+'</pre></details></div>';
+    function finish(v){ var ev=desk.resolve(v); applyEvent(ev); slot.innerHTML=""; renderAll(); }
+    $("apYes").onclick=function(){ finish({approve:true,reason:"사람이 승인",source:"manual"}); };
+    $("apNo").onclick=function(){ finish({approve:false,reason:"사람이 거부",source:"manual"}); };
+    $("apAuto").onclick=function(){ params.supervisor="rules"; desk.P.supervisor="rules"; syncControls(); save(); finish({approve:true,reason:"규칙 감독관으로 전환 (이 건은 승인)",source:"manual"}); };
+    var ask=$("apAsk");
+    if(ask) ask.onclick=function(){
+      var out=$("apOut"); out.hidden=false; out.textContent="Claude가 검토하는 중…"; ask.disabled=true;
+      claudeFn.json(PROMPT+JSON.stringify(j), {modelTier:"quick"}).then(function(r){
+        var ok = r && String(r.decision).toUpperCase()==="APPROVE";
+        out.innerHTML = '<b>Claude: '+(ok?"승인":"거부")+'</b> · '+esc(r&&r.reason||"")+' <button class="btn" id="apFollow" style="margin-left:8px">이 의견대로</button>';
+        $("apFollow").onclick=function(){ finish({approve:ok,reason:"Claude · "+(r&&r.reason||""),source:"claude"}); };
+      }, function(e){
+        var msg = {not_granted:"Claude 사용이 허용되지 않았습니다. 직접 승인하거나 거부하세요.", rate_limited:"요청이 많습니다. 잠시 뒤 다시 시도하세요."}[e&&e.code] || "Claude 응답을 받지 못했습니다. 직접 판단하세요.";
+        out.textContent=msg; if(e&&e.code==="not_granted"){ ask.hidden=true; } else { ask.disabled=false; }
+      });
+    };
+  }
+
+  // ---------- canvas helpers ----------
+  function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function prep(cv){
+    var r=cv.getBoundingClientRect(), d=window.devicePixelRatio||1;
+    var W=Math.max(10,Math.round(r.width)), H=Math.max(10,Math.round(r.height));
+    if(cv.width!==W*d||cv.height!==H*d){ cv.width=W*d; cv.height=H*d; }
+    var c=cv.getContext("2d"); c.setTransform(d,0,0,d,0,0); c.clearRect(0,0,W,H);
+    c.font="11px "+tok("--f-mono"); return {c:c,W:W,H:H};
+  }
+  function niceTicks(lo,hi,n){ var span=hi-lo||1, step=Math.pow(10,Math.floor(Math.log10(span/n))); var err=span/n/step; if(err>=7.5)step*=10;else if(err>=3.5)step*=5;else if(err>=1.5)step*=2; var t=[]; for(var v=Math.ceil(lo/step)*step; v<=hi+1e-9; v+=step) t.push(+v.toFixed(10)); return t; }
+
+  function drawPrice(){
+    var g=prep($("cvPrice")), c=g.c, W=g.W, H=g.H, L=54, R=10, T=10, B=22;
+    var w = desk.data.windows[Math.min(desk.wi, desk.data.windows.length-1)];
+    var look=desk.data.look, upto=Math.min(900, Math.floor(vt));
+    if(desk.done){ upto=900; }
+    var lo=Infinity, hi=-Infinity, i;
+    for(i=0;i<=900;i++){ var v=w.px[look+Math.min(i,899)]; if(i<=Math.max(upto,60)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
+    var k=w.px[look]; lo=Math.min(lo,k); hi=Math.max(hi,k); var pad=(hi-lo)*0.12+5; lo-=pad; hi+=pad;
+    var X=function(o){return L+(W-L-R)*o/900;}, Y=function(v){return T+(H-T-B)*(1-(v-lo)/(hi-lo));};
+    c.fillStyle=tok("--accent-soft"); c.fillRect(X(840),T,X(900)-X(840),H-T-B);
+    c.strokeStyle=tok("--grid"); c.fillStyle=tok("--muted"); c.lineWidth=1; c.textAlign="right"; c.textBaseline="middle";
+    niceTicks(lo,hi,4).forEach(function(t){ var y=Y(t); c.beginPath(); c.moveTo(L,y); c.lineTo(W-R,y); c.stroke(); c.fillText(t.toLocaleString("en-US",{maximumFractionDigits:0}),L-6,y); });
+    c.textAlign="center"; c.textBaseline="top";
+    [0,300,600,900].forEach(function(o){ c.fillText(o===900?"만기":(o/60)+"분",X(o),H-B+6); });
+    c.strokeStyle=tok("--warn"); c.setLineDash([4,4]); c.beginPath(); c.moveTo(L,Y(k)); c.lineTo(W-R,Y(k)); c.stroke(); c.setLineDash([]);
+    c.strokeStyle=tok("--ink"); c.lineWidth=1.4; c.beginPath();
+    for(i=0;i<=upto && i<900;i++){ var x=X(i), y=Y(w.px[look+i]); if(i===0)c.moveTo(x,y); else c.lineTo(x,y); } c.stroke();
+    if(upto>0 && upto<900){ c.fillStyle=tok("--ink"); c.beginPath(); c.arc(X(upto),Y(w.px[look+upto]),3,0,7); c.fill(); }
+    var wIdx=Math.min(desk.wi, desk.data.windows.length-1);
+    desk.positions.forEach(function(p){ if(p.window!==wIdx) return; var o=p.t-w.start; c.fillStyle=tok(p.side==="UP"?"--up":"--down"); c.beginPath(); c.arc(X(o),Y(w.px[look+o]),5,0,7); c.fill(); });
+  }
+
+  function drawProb(){
+    var g=prep($("cvProb")), c=g.c, W=g.W, H=g.H, L=34, R=10, T=10, B=22;
+    var X=function(o){return L+(W-L-R)*o/900;}, Y=function(v){return T+(H-T-B)*(1-v);};
+    c.strokeStyle=tok("--grid"); c.fillStyle=tok("--muted"); c.lineWidth=1; c.textAlign="right"; c.textBaseline="middle";
+    [0,0.25,0.5,0.75,1].forEach(function(t){ var y=Y(t); c.beginPath(); c.moveTo(L,y); c.lineTo(W-R,y); c.stroke(); c.fillText(t.toFixed(2),L-5,y); });
+    c.textAlign="center"; c.textBaseline="top"; [0,300,600,900].forEach(function(o){ c.fillText(o===900?"만기":(o/60)+"분",X(o),H-B+6); });
+    var p=desk.P; c.fillStyle=tok("--accent-soft"); c.globalAlpha=0.5; c.fillRect(X(900-p.maxSecondsLeft),T,X(900-p.minSecondsLeft)-X(900-p.maxSecondsLeft),H-T-B); c.globalAlpha=1;
+    c.strokeStyle=tok("--accent"); c.lineWidth=2; c.beginPath();
+    series.forEach(function(s,i){ var x=X(s.off), y=Y(s.p); if(i===0)c.moveTo(x,y); else c.lineTo(x,y); }); c.stroke();
+    c.fillStyle=tok("--muted"); series.forEach(function(s){ c.beginPath(); c.arc(X(s.off),Y(s.m),3,0,7); c.fill(); });
+    c.fillStyle=tok("--accent"); series.forEach(function(s){ c.beginPath(); c.arc(X(s.off),Y(s.p),2.2,0,7); c.fill(); });
+    var wIdx=Math.min(desk.wi,desk.data.windows.length-1), w=desk.data.windows[wIdx];
+    desk.positions.forEach(function(q){ if(q.window!==wIdx) return; var o=q.t-w.start, s=series.filter(function(z){return z.off===o;})[0]; if(!s) return;
+      c.strokeStyle=tok(q.side==="UP"?"--up":"--down"); c.lineWidth=2.5; c.beginPath(); c.arc(X(o),Y(s.p),7,0,7); c.stroke(); });
+  }
+
+  function drawEq(){
+    var g=prep($("cvEq")), c=g.c, W=g.W, H=g.H, L=54, R=10, T=10, B=20, eq=desk.equity;
+    var n=data.windows.length, vals=eq.map(function(e){return e.v;}), b0=desk.P.bankroll;
+    var lo=Math.min.apply(null,vals.concat([b0])), hi=Math.max.apply(null,vals.concat([b0])); var pad=Math.max(5,(hi-lo)*0.15); lo-=pad; hi+=pad;
+    var X=function(i){return L+(W-L-R)*i/n;}, Y=function(v){return T+(H-T-B)*(1-(v-lo)/(hi-lo));};
+    c.strokeStyle=tok("--grid"); c.fillStyle=tok("--muted"); c.lineWidth=1; c.textAlign="right"; c.textBaseline="middle";
+    niceTicks(lo,hi,3).forEach(function(t){ var y=Y(t); c.beginPath(); c.moveTo(L,y); c.lineTo(W-R,y); c.stroke(); c.fillText("$"+t.toFixed(0),L-6,y); });
+    c.textAlign="center"; c.textBaseline="top"; [0,Math.round(n/2),n].forEach(function(i){ c.fillText(i===0?"시작":i+"창",X(i),H-B+5); });
+    c.strokeStyle=tok("--muted"); c.setLineDash([3,4]); c.beginPath(); c.moveTo(L,Y(b0)); c.lineTo(W-R,Y(b0)); c.stroke(); c.setLineDash([]);
+    var up = vals[vals.length-1] >= b0;
+    c.beginPath(); eq.forEach(function(e,i){ var x=X(i), y=Y(e.v); if(i===0)c.moveTo(x,y); else c.lineTo(x,y); });
+    c.strokeStyle=tok(up?"--up":"--down"); c.lineWidth=2; c.stroke();
+    c.lineTo(X(eq.length-1),Y(lo)); c.lineTo(X(0),Y(lo)); c.closePath(); c.globalAlpha=0.12; c.fillStyle=tok(up?"--up":"--down"); c.fill(); c.globalAlpha=1;
+    var li=eq.length-1; c.fillStyle=tok(up?"--up":"--down"); c.beginPath(); c.arc(X(li),Y(vals[li]),3.5,0,7); c.fill();
+  }
+
+  // ---------- DOM renders ----------
+  function kpi(lab,val,hint,klass){ return '<div class="kpi"><span class="lab">'+lab+'</span><span class="val '+(klass||"")+'">'+val+'</span><span class="hint">'+(hint||"&nbsp;")+'</span></div>'; }
+  function renderKpis(){
+    var s=desk.stats();
+    $("kpis").innerHTML =
+      kpi("잔고",usd(s.bankroll),"시작 "+usd(desk.P.bankroll)) +
+      kpi("실현 손익",usd(s.pnl,true),"투입 대비 "+(s.roi==null?"—":pct(s.roi)),cls(s.pnl)) +
+      kpi("모델이 기대한 손익",usd(s.expPnl,true),"모델 확률이 맞았다면","") +
+      kpi("거래",s.trades+"건",s.settled?("적중 "+s.wins+" · 실패 "+(s.settled-s.wins)):"") +
+      kpi("적중률",pct(s.winRate),"") +
+      kpi("낸 수수료",usd(s.fees),"테이커 수수료") +
+      kpi("Brier 모델 / 시장", s.brierModel==null?"—":s.brierModel.toFixed(3)+" / "+s.brierMarket.toFixed(3), s.obs+"번 관측", s.brierModel!=null&&s.brierModel>s.brierMarket?"neg":"pos");
+  }
+  function renderPipe(){
+    $("pipe").innerHTML = STAGES.map(function(s){ var st=stages[s[0]]||{s:"",t:"대기"}; return '<div class="stage" data-s="'+st.s+'"><span class="nm">'+s[0]+'</span><span class="ko">'+s[1]+'</span><span class="st">'+esc(st.t)+'</span></div>'; }).join("");
+    var mode={rules:"감독관: 규칙",manual:"감독관: 수동 승인",off:"감독관: 끔"}[desk.P.supervisor];
+    $("pipeMeta").textContent = mode;
+  }
+  function renderSides(){
+    var ev=lastTick;
+    if(!ev||!ev.sides){ $("sides").innerHTML='<div class="meta">'+(ev&&ev.block?"리스크 단계에서 멈춤: "+esc(ev.block):"진입 가능 시간대의 관측을 기다리는 중")+'</div>'; $("edgeMeta").textContent=""; return; }
+    $("edgeMeta").textContent = "만기 "+(900-ev.off)+"초 전";
+    $("sides").innerHTML = ev.sides.map(function(o){
+      return '<div class="side"><span class="h"><span class="pill '+(o.side==="UP"?"up":"down")+'">'+o.side+'</span><span class="'+(o.skip?"":"pos")+'">'+(o.skip?esc(o.skip):"진입 후보")+'</span></span>'+
+        '<span class="k">모델 승률</span><span class="v">'+o.pWin.toFixed(3)+'</span><span class="k">매수가 → 지정가</span><span class="v">'+o.ask.toFixed(2)+' → '+o.limit.toFixed(2)+'</span>'+
+        '<span class="k">수수료/주</span><span class="v">'+o.fee.toFixed(4)+'</span><span class="k">주당 우위</span><span class="v '+cls(o.edge)+'">'+(o.edge>=0?"+":"")+(o.edge*100).toFixed(2)+'¢</span></div>';
+    }).join("");
+  }
+  function renderLedger(){
+    var ps=desk.positions.slice().reverse();
+    $("ledgerMeta").textContent = ps.length? ps.length+"건" : "아직 체결 없음";
+    $("ledger").innerHTML = ps.length ? ps.map(function(p){ var w=data.windows[p.window];
+      return '<tr><td class="num">'+p.id+'</td><td>'+esc(winLabel(w))+'</td><td><span class="pill '+(p.side==="UP"?"up":"down")+'">'+p.side+'</span></td><td class="r num">'+p.shares+'</td><td class="r num">'+p.price.toFixed(2)+'</td><td class="r num">'+p.fee.toFixed(2)+'</td><td class="r num">'+p.pWin.toFixed(3)+'</td><td class="r num">'+(p.edge*100).toFixed(1)+'¢</td><td><span class="pill '+p.status+'">'+({open:"진행 중",won:"적중",lost:"실패"}[p.status])+'</span></td><td class="r num '+cls(p.pnl)+'">'+(p.status==="open"?"—":usd(p.pnl,true))+'</td></tr>'; }).join("")
+      : '<tr><td colspan="10" class="meta">재생을 시작하면 체결이 여기에 쌓입니다.</td></tr>';
+  }
+  var KIND={no_edge:"우위없음",size_skip:"크기미달",supervisor:"감독관",fill:"체결",settle:"정산"};
+  function renderLog(){
+    var tr=desk.trace.slice(-160).reverse();
+    $("log").innerHTML = tr.length ? tr.map(function(e){ return '<div><span class="k">'+kstTime.format(new Date(e.t*1000)).slice(0,5)+'</span><span class="k '+e.kind+'">'+(KIND[e.kind]||e.kind)+'</span><span>'+esc(e.note||"")+'</span></div>'; }).join("") : '<div class="meta" style="display:block">기록 없음</div>';
+  }
+  function renderClock(){
+    var n=data.windows.length, wi=Math.min(desk.wi,n-1), w=data.windows[wi];
+    $("winTitle").textContent = winLabel(w)+" KST";
+    $("clock").innerHTML = desk.done ? "<b>재생 완료</b> · "+n+"개 창" : "창 <b>"+(wi+1)+"/"+n+"</b> · "+esc(winLabel(w))+" · 만기 <b>"+Math.max(0,Math.round(900-vt))+"초</b> 전";
+    $("prog").style.width = (100*(desk.done?1:(wi+vt/900)/n))+"%";
+    $("play").disabled = desk.done || !!desk.pending; $("stepBtn").disabled=desk.done||!!desk.pending; $("endBtn").disabled=desk.done;
+  }
+  var lastHeavy=0;
+  function renderAll(force){
+    renderClock(); renderPipe(); drawPrice(); drawProb();
+    var now=performance.now();
+    if(force!==false || now-lastHeavy>250 || !playing){ lastHeavy=now; renderKpis(); renderSides(); renderLedger(); renderLog(); drawEq(); }
+  }
+
+  // ---------- comparison runs ----------
+  function renderCompare(){
+    var base=engineParams(params);
+    var rows=[
+      ["현재 설정", base],
+      ["추세(drift) 0.5 켬", Object.assign({},base,{driftWeight:0.5})],
+      ["감독관 끔", Object.assign({},base,{supervisor:"off"})],
+      ["최소 우위 0", Object.assign({},base,{minEdge:0})],
+      ["수수료 없음", Object.assign({},base,{feeOverride:0})]
+    ];
+    var mb=null;
+    $("cmp").innerHTML = rows.map(function(r){
+      var d=new GD.Desk(data,r[1]); var s=d.runToEnd(); mb=s.brierMarket;
+      return '<tr><td class="lbl">'+r[0]+'</td><td class="r num '+cls(s.pnl)+'">'+usd(s.pnl,true)+'</td><td class="r num">'+s.trades+'</td><td class="r num">'+s.brierModel.toFixed(3)+'</td></tr>';
+    }).join("");
+    $("mktBrier").textContent = mb==null?"—":mb.toFixed(3);
+  }
+
+  // ---------- controls ----------
+  function syncControls(){
+    $("supervisor").value=params.supervisor; $("o-supervisor").textContent="";
+    Object.keys(FIELDS).forEach(function(k){ $(k).value=params[k]; $("o-"+k).textContent=FIELDS[k].fmt(+params[k]); });
+  }
+  var cmpTimer=0;
+  function onParam(){
+    params.supervisor=$("supervisor").value;
+    Object.keys(FIELDS).forEach(function(k){ params[k]=+$(k).value; $("o-"+k).textContent=FIELDS[k].fmt(params[k]); });
+    save(); pause(); newDesk();
+    clearTimeout(cmpTimer); cmpTimer=setTimeout(renderCompare,120);
+  }
+  $("supervisor").addEventListener("change",onParam);
+  Object.keys(FIELDS).forEach(function(k){ $(k).addEventListener("input",function(){ $("o-"+k).textContent=FIELDS[k].fmt(+$(k).value); }); $(k).addEventListener("change",onParam); });
+  $("defaults").onclick=function(){ params=defaults(); syncControls(); onParam(); };
+  $("play").onclick=function(){ playing?pause():play(); };
+  $("stepBtn").onclick=function(){ pause(); var w=desk.data.windows[desk.wi]; var nextOff=desk.mi<w.mkt.length?w.mkt[desk.mi][0]:900; advance(Math.max(0.001,nextOff-vt)); renderAll(); };
+  $("resetBtn").onclick=function(){ pause(); newDesk(); };
+  $("endBtn").onclick=function(){
+    pause(); $("approvalSlot").innerHTML="";
+    if(desk.pending) desk.resolve({approve:true,reason:"일괄 실행: 규칙 감독관으로 대체",source:"rules"});
+    desk.runToEnd(); vt=900; series=[]; stages.CLOSER={s:"",t:"일괄 실행 완료"}; renderAll();
+  };
+  Array.prototype.forEach.call($("speeds").querySelectorAll("button"),function(b){
+    b.onclick=function(){ speed=+b.dataset.v; Array.prototype.forEach.call($("speeds").querySelectorAll("button"),function(x){ x.setAttribute("aria-pressed", x===b?"true":"false"); }); };
+  });
+
+  // tabs
+  function showTab(name){
+    var rep=name!=="import";
+    $("tab-replay").setAttribute("aria-selected",rep?"true":"false"); $("tab-import").setAttribute("aria-selected",rep?"false":"true");
+    $("view-replay").hidden=!rep; $("view-import").hidden=rep;
+    if(rep){ pause(); renderAll(); } else pause();
+  }
+  $("tab-replay").onclick=function(){ showTab("replay"); }; $("tab-import").onclick=function(){ showTab("import"); };
+
+  // ---------- import ----------
+  var imp={positions:null,trace:null};
+  function readFiles(list){
+    var files=Array.prototype.slice.call(list), left=files.length, msgs=[];
+    if(!left) return;
+    files.forEach(function(f){
+      var r=new FileReader();
+      r.onload=function(){
+        var text=String(r.result);
+        try{
+          if(/\.jsonl$/i.test(f.name) || (text.trim().charAt(0)==="{" && text.indexOf("\n{")>0)){
+            imp.trace = text.split(/\n/).filter(Boolean).map(function(l){ return JSON.parse(l); }); msgs.push(f.name+": 기록 "+imp.trace.length+"줄");
+          } else {
+            var v=JSON.parse(text); if(!Array.isArray(v)) throw new Error("not array"); imp.positions=v; msgs.push(f.name+": 포지션 "+v.length+"건");
+          }
+        }catch(e){ msgs.push(f.name+": 읽지 못했습니다. Python 데스크가 만든 positions.json 또는 trace.jsonl인지 확인하세요."); }
+        if(--left===0){ $("importMsg").textContent=msgs.join(" · "); renderImport(); }
+      };
+      r.onerror=function(){ msgs.push(f.name+": 파일을 열지 못했습니다."); if(--left===0){ $("importMsg").textContent=msgs.join(" · "); renderImport(); } };
+      r.readAsText(f);
+    });
+  }
+  function renderImport(){
+    var ps=imp.positions;
+    if(ps){
+      var done=ps.filter(function(p){return p.status!=="open";}), wins=done.filter(function(p){return p.status==="won";}).length;
+      var sum=function(a,f){return a.reduce(function(s,p){return s+(+f(p)||0);},0);};
+      var cost=function(p){return p.shares*p.avg_price+p.fee_usd;};
+      var pnl=sum(done,function(p){return p.pnl_usd;}), staked=sum(done,cost), exp=sum(done,function(p){return p.shares*p.p_win-cost(p);});
+      $("impKpis").hidden=false;
+      $("impKpis").innerHTML = kpi("거래",ps.length+"건","정산 "+done.length+" · 진행 "+(ps.length-done.length))+kpi("적중률",done.length?pct(wins/done.length):"—","")+
+        kpi("실현 손익",usd(pnl,true),staked?"투입 대비 "+pct(pnl/staked):"",cls(pnl))+kpi("모델이 기대한 손익",usd(exp,true),"")+kpi("낸 수수료",usd(sum(ps,function(p){return p.fee_usd;})),"");
+      $("impPosPanel").hidden=false;
+      $("impPos").innerHTML = ps.slice().reverse().map(function(p){
+        return '<tr><td>'+kstFmt.format(new Date(p.opened_ts*1000))+'</td><td class="mono">'+esc(p.slug)+'</td><td><span class="pill '+(p.side==="UP"?"up":"down")+'">'+esc(p.side)+'</span></td><td class="r num">'+p.shares+'</td><td class="r num">'+(+p.avg_price).toFixed(3)+'</td><td class="r num">'+(+p.fee_usd).toFixed(3)+'</td><td class="r num">'+(+p.p_win).toFixed(3)+'</td><td><span class="pill '+esc(p.status)+'">'+({open:"진행 중",won:"적중",lost:"실패"}[p.status]||esc(p.status))+'</span></td><td class="r num '+cls(p.pnl_usd)+'">'+(p.status==="open"?"—":usd(p.pnl_usd,true))+'</td><td>'+esc(p.settled_by||"")+'</td></tr>';
+      }).join("");
+    }
+    var tr=imp.trace;
+    if(tr){
+      var counts={}; tr.forEach(function(e){ counts[e.kind]=(counts[e.kind]||0)+1; });
+      $("impTracePanel").hidden=false;
+      $("impTraceMeta").textContent = Object.keys(counts).map(function(k){return k+" "+counts[k];}).join(" · ");
+      $("impLog").innerHTML = tr.slice(-300).reverse().map(function(e){
+        var rest=Object.assign({},e); delete rest.ts; delete rest.kind;
+        return '<div><span class="k">'+kstTime.format(new Date(e.ts*1000)).slice(0,5)+'</span><span class="k '+esc(e.kind)+'">'+esc(e.kind)+'</span><span>'+esc(JSON.stringify(rest).slice(0,260))+'</span></div>';
+      }).join("");
+    }
+  }
+  $("fileIn").addEventListener("change",function(){ readFiles(this.files); });
+  var drop=$("drop");
+  ["dragenter","dragover"].forEach(function(t){ drop.addEventListener(t,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
+  ["dragleave","drop"].forEach(function(t){ drop.addEventListener(t,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
+  drop.addEventListener("drop",function(e){ if(e.dataTransfer&&e.dataTransfer.files) readFiles(e.dataTransfer.files); });
+
+  // ---------- boot ----------
+  var first=data.windows[0], last=data.windows[data.windows.length-1];
+  $("dataNote").insertAdjacentHTML("beforeend",' <span class="mono">'+esc(winLabel(first))+' → '+esc(winLabel(last))+' KST · '+data.windows.length+'개 창</span>');
+  syncControls(); newDesk();
+  // open in a realistic working state: advance through the first three windows
+  for(var i=0;i<3 && !desk.done;i++){ advance(900); }
+  if(desk.pending){ showApproval(desk.pending); }
+  advance(420);
+  renderAll(); renderCompare();
+  if(window.ResizeObserver){ new ResizeObserver(function(){ renderAll(); }).observe(document.querySelector(".charts")); }
+  if(window.matchMedia){ var mq=window.matchMedia("(prefers-color-scheme: dark)"); if(mq.addEventListener) mq.addEventListener("change",function(){ renderAll(); }); }
+  new MutationObserver(function(){ renderAll(); }).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+})();
+</script>
