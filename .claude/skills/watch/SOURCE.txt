@@ -1,0 +1,3 @@
+Vendored from https://github.com/bradautomates/claude-video (skills/watch)
+Commit: 03ceb42f7fa2c4439aca01752118044baabffb8f (v0.3.2)
+License: MIT (see LICENSE)

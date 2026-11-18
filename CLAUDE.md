@@ -18,6 +18,8 @@ Current apps:
 
 `.claude/skills/video-breakdown/` is a project skill (Korean) for reverse-engineering how a reference video was made, using the open-source rea-video CLI installed by its own `scripts/setup.sh` (pinned, reviewed commit; isolated venv under `~/.local/share/rea-video`). Analysis outputs go to `~/video-breakdowns/`, never into this repo. The mini-app conventions don't apply to it.
 
+`.claude/skills/watch/` is the third-party `/watch` skill vendored unmodified from github.com/bradautomates/claude-video at the commit in its `SOURCE.txt` (MIT). It turns a video URL/file into timestamped frames + transcript (yt-dlp, ffmpeg; optional Gemini/Groq/OpenAI/WhisperX). User config/keys live in `~/.config/watch/.env`, never in this repo. To update it, re-vendor from a reviewed upstream commit rather than editing in place. The mini-app conventions don't apply to it.
+
 ## Working with an app
 
 There is no dev server or build step. Open the file directly, e.g.:
