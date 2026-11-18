@@ -1,0 +1,44 @@
+[
+ {
+  "slug": "btc-updown-15m-1795011300",
+  "title": "Bitcoin Up or Down - November 18, 9:15AM-9:30AM ET",
+  "markets": [
+   {
+    "id": "7120186",
+    "question": "Bitcoin Up or Down - November 18, 9:15AM-9:30AM ET",
+    "slug": "btc-updown-15m-1795011300",
+    "conditionId": "0x1b2cfd61020bb5fccade7750d99bcc172134b11d4b5e24afdedd49bd69ead22c",
+    "outcomes": "[\"Up\", \"Down\"]",
+    "outcomePrices": "[\"0.645\", \"0.355\"]",
+    "clobTokenIds": "[\"100659983534420828517069770261044113709917664263993950281054224647997226220608\", \"4690591565956591997180752464466955943898359721902479342884915296848820981540\"]",
+    "endDate": "2026-11-18T14:30:00Z",
+    "eventStartTime": "2026-11-18T14:15:00Z",
+    "bestBid": 0.6,
+    "bestAsk": 0.61,
+    "active": true,
+    "closed": false,
+    "acceptingOrders": true,
+    "orderMinSize": 5,
+    "orderPriceMinTickSize": 0.01,
+    "feesEnabled": true,
+    "takerBaseFee": 1000,
+    "feeSchedule": {
+     "exponent": 1,
+     "rate": 0.07,
+     "takerOnly": true,
+     "rebateRate": 0.2
+    },
+    "feeType": "crypto_fees_v2",
+    "cryptoMarketConfig": {
+     "id": "btc-15m-twap-60",
+     "asset": "btc",
+     "duration": "15m",
+     "twapEnabled": true,
+     "twapLookbackSeconds": 60
+    },
+    "negRisk": false,
+    "resolutionSource": "https://data.chain.link/streams/btc-usd-twap-60s-streams"
+   }
+  ]
+ }
+]

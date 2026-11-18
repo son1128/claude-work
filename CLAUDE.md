@@ -14,6 +14,8 @@ Current apps:
 
 `firestore-rules/` is the one exception to the no-tooling rule: a small npm project with Firestore security rules for a sample CRM and Vitest tests run against the Firestore emulator (`npm install && npm test` inside that folder; needs Java for the emulator). It is unrelated to the mini-apps and their conventions below don't apply to it.
 
+`polymarket-grok-desk/` is another exception: a stdlib-only Python 3.11+ package (`grokdesk`) for paper-trading Polymarket BTC "Up or Down" markets, with Grok (xAI) as a veto-only supervisor. It *does* make network calls (Binance data mirror, Polymarket Gamma/CLOB, optional xAI). Run tests with `python -m unittest discover -s tests -t .` inside that folder (offline, fake transport). Keep paper mode the default and keep the live-trading gates in `execution.assert_live_allowed` (including refusing when Polymarket's geoblock says the region is restricted). Runtime output goes to `polymarket-grok-desk/data/` (gitignored). The mini-app conventions don't apply to it.
+
 `.claude/skills/video-breakdown/` is a project skill (Korean) for reverse-engineering how a reference video was made, using the open-source rea-video CLI installed by its own `scripts/setup.sh` (pinned, reviewed commit; isolated venv under `~/.local/share/rea-video`). Analysis outputs go to `~/video-breakdowns/`, never into this repo. The mini-app conventions don't apply to it.
 
 ## Working with an app

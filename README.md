@@ -37,6 +37,10 @@ Each needs only the Python standard library (`tkinter`) except `mirror_bloom.py`
 
 `firestore-rules/` holds role-based Firestore security rules for a sample CRM ("ClientBase") plus emulator tests — unrelated to the mini-apps. Unlike the rest of the repo it is an npm project: run `npm install && npm test` inside it (needs Node.js 20+ and Java 11+). See [`firestore-rules/README.md`](firestore-rules/README.md).
 
+## Polymarket Grok Desk
+
+`polymarket-grok-desk/` is a paper-trading-first research bot for Polymarket's BTC "Up or Down" markets: a quant pipeline (spotter → pricer → edge after fees → fractional Kelly → risk limits → fill) with Grok (xAI) as a veto-only supervisor, plus a calibration replay that scores the pricing model on past windows. Stdlib-only Python 3.11+; run `python -m unittest discover -s tests -t .` inside it. See [`polymarket-grok-desk/README.md`](polymarket-grok-desk/README.md) (Korean).
+
 ## Conventions
 
 Every app follows the same shape: no `<html>`/`<head>`/`<body>` wrapper, just `<!doctype html>`, `<title>`, `<meta charset>`, a Google Fonts `<link>`, one `<style>` block, the body markup, and one `<script>` block at the end. All logic runs client-side (vanilla JS, ES5-leaning syntax, no framework); apps that persist state use `localStorage`. No network calls beyond the Google Fonts stylesheet — everything else works fully offline.

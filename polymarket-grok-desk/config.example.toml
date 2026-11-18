@@ -1,0 +1,48 @@
+# Copy to config.toml and edit. Every key is optional; omitted keys use the
+# defaults in grokdesk/*.py. Unknown keys are rejected so typos can't silently
+# disable a limit.
+
+[desk]
+mode = "paper"                 # "paper" (simulated fills) | "live" (real money, see README)
+asset = "btc"
+durations = ["15m"]            # any of "5m", "15m", "1h"
+starting_bankroll_usd = 500.0  # paper bankroll; ignored by the exchange in live mode
+data_dir = "data"              # ledger + trace.jsonl live under data/<mode>/
+poll_interval_s = 1.0
+open_price_mode = "spot"       # "spot" = 1s candle at window start, "twap" = 60s TWAP ending at start
+
+[feeds]
+binance_base = "https://data-api.binance.vision"   # public mirror; api.binance.com is geo-restricted in some regions
+symbol = "BTCUSDT"
+
+[prior]
+vol_lookback_s = 300
+trend_lookback_s = 90
+r2_min = 0.35
+drift_weight = 0.0             # regression-slope drift; OFF by default (hurt calibration — run `calibrate`)
+basis_bps = 2.0                # our feed vs Chainlink uncertainty
+
+[edge]
+min_edge = 0.04                # $/share expected value after taker fee, at the limit price
+slippage_ticks = 1
+max_model_market_gap = 0.30
+
+[kelly]
+kelly_multiplier = 0.25        # quarter-Kelly
+max_bankroll_fraction = 0.02
+max_stake_usd = 25.0
+
+[risk]
+max_daily_loss_usd = 50.0
+max_open_positions = 3
+min_seconds_left = 20
+max_seconds_left = 600
+kill_switch_file = "STOP"      # `touch STOP` halts new orders immediately
+
+[grok]
+enabled = false                # needs XAI_API_KEY in the environment
+model = "grok-4"               # any chat model your xAI key can use
+daily_budget_usd = 1.00
+input_price_per_m = 3.00       # check xAI pricing for your model
+output_price_per_m = 15.00
+fail_mode = "veto"             # if Grok errors/over budget: "veto" (no trade) or "approve"

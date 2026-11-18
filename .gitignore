@@ -13,3 +13,10 @@ test-code/*_screenshot.png
 # firestore-rules/: npm dependencies and emulator logs written by `npm test`.
 firestore-rules/node_modules/
 firestore-rules/*-debug.log
+
+# polymarket-grok-desk/: local config (may hold settings you don't want shared),
+# ledgers/traces written at runtime, and the kill-switch file.
+polymarket-grok-desk/config.toml
+polymarket-grok-desk/data/
+polymarket-grok-desk/STOP
+__pycache__/
